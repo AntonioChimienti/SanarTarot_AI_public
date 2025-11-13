@@ -1,0 +1,25 @@
+# === ESCLUDI FILE GENERATI E PESANTI ===
+
+# cartelle build generate automaticamente
+app/build/
+build/
+
+# cache gradle
+.gradle/
+
+# cache IDE
+.idea/
+*.iml
+
+# configurazioni locali (NON devono stare su GitHub)
+local.properties
+keystore.properties
+*.jks
+
+# file temporanei e inutili
+captures/
+.DS_Store
+*.log
+
+# === NON IGNORARE le immagini ===
+# (NON ignorare drawable/, mipmap/, assets/)

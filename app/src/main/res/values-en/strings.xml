@@ -1,0 +1,59 @@
+<resources>
+    <!-- App -->
+    <string name="app_name">Sanar Tarot Draw</string>
+
+    <!-- Titles / sections -->
+    <string name="title_extract">Draw Tarot Cards</string>
+    <string name="section_drawn_images">Drawn Cards (images):</string>
+    <string name="section_drawn_list">Drawn Cards:</string>
+
+    <!-- Fields -->
+    <string name="field_num_cards">Number of cards</string>
+    <string name="field_mood">Mood</string>
+    <string name="field_vision">Vision</string>
+
+    <!-- Toggles -->
+    <string name="toggle_majors">Major Arcana</string>
+    <string name="toggle_minors">Minor Arcana</string>
+    <string name="toggle_reversed">Allow reversed</string>
+
+    <!-- Buttons -->
+    <string name="btn_draw">Draw</string>
+    <string name="btn_reset">Reset</string>
+    <string name="btn_analyze">Analyze with ChatGPT</string>
+    <string name="btn_analyze_progress">Analyzing…</string>
+    <string name="btn_share">Share</string>
+    <string name="share_chatgpt">Copy &amp; open ChatGPT</string>
+
+    <!-- Menu -->
+    <string name="menu_toggle_view">Show details</string>
+    <string name="menu_toggle_view_images">Images only</string>
+    <string name="menu_ai_settings">AI Settings</string>
+    <string name="menu_help_ai">AI mode explained</string>
+    <string name="menu_tarot_guide">How to use Tarot</string>
+    <string name="menu_language">Language</string>
+    <string name="menu_credits">Credits</string>
+    <string name="menu_check_images">Check card images</string>
+
+    <!-- Dialog / common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
+
+    <!-- Mood diagnostics -->
+    <string name="mood_active">Active mood</string>
+    <string name="mood_hint">Write how you feel to influence the draw.</string>
+    <string name="ai_boosts_active">AI boosts active</string>
+
+    <!-- AI settings -->
+    <string name="ai_provider">Active provider</string>
+    <string name="openai_key">OpenAI API Key</string>
+    <string name="gemini_key">Gemini API Key</string>
+    <string name="ai_notes">Note: without an API key the “Vision” field won’t influence the draw.</string>
+
+    <!-- Placeholders -->
+    <string name="ph_mood">e.g. anxious but curious…</string>
+    <string name="ph_vision">e.g. a golden gate in a garden…</string>
+    <string name="none">None</string>
+    <string name="menu_choose_deck">Choose Deck</string>
+</resources>

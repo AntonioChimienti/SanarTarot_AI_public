@@ -1,0 +1,36 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="it.mediterraneanrecords.tarotdraw">
+
+    <!-- 👇 Questo blocco serve per permettere a getLaunchIntentForPackage() di "vedere" ChatGPT -->
+    <queries>
+        <package android:name="com.openai.chatgpt" />
+        <package android:name="com.openai.chatgpt.beta" />
+        <package android:name="com.openai.mobile" />
+        <package android:name="com.openai.chat" />
+        <!-- Gemini (ex Bard) -->
+        <package android:name="com.google.android.apps.bard" />
+        <package android:name="com.google.android.apps.bard.dev" />
+    </queries>
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="Sanar Tarot Draw"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.TarotDraw">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

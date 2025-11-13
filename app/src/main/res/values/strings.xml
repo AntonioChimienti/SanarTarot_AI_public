@@ -1,0 +1,60 @@
+<resources>
+    <!-- App -->
+    <string name="app_name">Sanar Tarot Draw</string>
+
+    <!-- Titoli / sezioni -->
+    <string name="title_extract">Estrai carte dai Tarocchi</string>
+    <string name="section_drawn_images">Carte Estratte (immagini):</string>
+    <string name="section_drawn_list">Carte Estratte:</string>
+
+    <!-- Campi -->
+    <string name="field_num_cards">Numero di carte</string>
+    <string name="field_mood">Stato d’animo</string>
+    <string name="field_vision">Visione</string>
+
+    <!-- Toggle -->
+    <string name="toggle_majors">Arcani Maggiori</string>
+    <string name="toggle_minors">Arcani Minori</string>
+    <string name="toggle_reversed">Rovesciate abilitate</string>
+
+    <!-- Bottoni -->
+    <string name="btn_draw">Estrai Carte</string>
+    <string name="btn_reset">Reset</string>
+    <string name="btn_analyze">Analizza con ChatGPT</string>
+    <string name="btn_analyze_progress">Analisi in corso…</string>
+    <string name="btn_share">Condividi</string>
+    <string name="share_chatgpt">Copia &amp; apri ChatGPT</string>
+
+    <!-- Menu -->
+    <string name="menu_toggle_view">Mostra dettagli</string>
+    <string name="menu_toggle_view_images">Mostra solo immagini</string>
+    <string name="menu_ai_settings">Impostazioni AI</string>
+    <string name="menu_help_ai">Spiegazione modalità AI</string>
+    <string name="menu_tarot_guide">Come usare i Tarocchi</string>
+    <string name="menu_language">Lingua</string>
+    <string name="menu_credits">Crediti</string>
+    <string name="menu_check_images">Verifica immagini carte</string>
+
+    <!-- Dialog / azioni comuni -->
+    <string name="ok">OK</string>
+    <string name="cancel">Annulla</string>
+    <string name="close">Chiudi</string>
+
+    <!-- Diagnostica Mood -->
+    <string name="mood_active">Mood attivo</string>
+    <string name="mood_hint">Scrivi come ti senti per influenzare l’estrazione.</string>
+    <string name="ai_boosts_active">Boost AI attivi</string>
+
+    <!-- Impostazioni AI -->
+    <string name="ai_provider">Provider attivo</string>
+    <string name="openai_key">OpenAI API Key</string>
+    <string name="gemini_key">Gemini API Key</string>
+    <string name="ai_notes">Nota: senza API key il campo «Visione» non influenza l’estrazione.</string>
+
+    <!-- Placeholder (se ti servono nei TextField) -->
+    <string name="ph_mood">es. ansioso ma curioso…</string>
+    <string name="ph_vision">es. una porta dorata in un giardino…</string>
+    <string name="none">Nessuno</string>
+    <string name="menu_choose_deck">Scegli mazzo</string>
+
+</resources>
