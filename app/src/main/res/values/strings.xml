@@ -44,6 +44,13 @@
     <string name="mood_active">Mood attivo</string>
     <string name="mood_hint">Scrivi come ti senti per influenzare l’estrazione.</string>
     <string name="ai_boosts_active">Boost AI attivi</string>
+    <string name="placeholder_mood">es. ansioso, speranzoso, gioioso…</string>
+    <string name="placeholder_vision">es. una foresta al tramonto, una porta, un sentiero…</string>
+    <string name="mood_no_syn">
+    Nessun sinonimo trovato (prova una parola più semplice, es. “triste”, “gioia”, “rabbia”…).
+</string>
+
+
 
     <!-- Impostazioni AI -->
     <string name="ai_provider">Provider attivo</string>
@@ -56,5 +63,6 @@
     <string name="ph_vision">es. una porta dorata in un giardino…</string>
     <string name="none">Nessuno</string>
     <string name="menu_choose_deck">Scegli mazzo</string>
+
 
 </resources>

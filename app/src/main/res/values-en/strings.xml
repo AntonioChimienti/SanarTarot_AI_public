@@ -44,6 +44,12 @@
     <string name="mood_active">Active mood</string>
     <string name="mood_hint">Write how you feel to influence the draw.</string>
     <string name="ai_boosts_active">AI boosts active</string>
+    <string name="placeholder_mood">e.g., anxious, hopeful, joyful…</string>
+    <string name="placeholder_vision">e.g., a forest at sunset, a door, a path…</string>
+
+    <string name="mood_no_syn">
+    No synonym found (try a simpler word, e.g. “sad”, “joy”, “angry”…).
+</string>
 
     <!-- AI settings -->
     <string name="ai_provider">Active provider</string>

@@ -9,6 +9,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import it.mediterraneanrecords.tarotdraw.AmbientAudio
+//import com.google.android.gms.ads.MobileAds
 
 import android.app.Activity
 import android.content.Context
@@ -133,11 +134,11 @@ private fun appLangTag(): String {
         (locales[0]?.toLanguageTag() ?: "it")
 }
 
-/* =========================================================
-   BUILD VARIANTS
-   ========================================================= */
+/* =================== BUILD VARIANTS =================== */
+// Per ora esiste solo la versione FREE.
+// Quando creeremo davvero una Pro, useremo BuildConfig o i flavors.
 private val isProVersion: Boolean
-    get() = BuildConfig.IS_PRO
+    get() = false
 
 /* =========================================================
    TEMA
@@ -318,8 +319,15 @@ class TarotViewModel(private val state: SavedStateHandle) : ViewModel() {
 
     fun refreshLlmBoosts(ctx: Context, langTag: String) {
         val moodRaw = _mentalImageText.trim()
-        val apiKey = BuildConfig.OPENAI_API_KEY ?: ""
-
+        val apiKey = ""
+        if (apiKey.isBlank()) {
+            _canonMoodText = ""
+            _localBoosts = null
+            _llmBoosts = null
+            _noSynonymFound = false
+            _moodAnalysisDone = false
+            return
+        }
         if (moodRaw.isEmpty()) {
             _canonMoodText = ""
             _localBoosts = null
@@ -541,6 +549,8 @@ class MainActivity : ComponentActivity() {
         val tag = savedLang.ifBlank { "it" }
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
 
+        //inizializza gli ADS QUI
+        //MobileAds.initialize(this)
         val vm by viewModels<TarotViewModel>()
         setContent { AppTheme { TarotScreen(vm = vm) } }
     }
@@ -1086,9 +1096,13 @@ fun TarotScreenContent(
                         )
                     }
                 }
-                /* ---------- Diagnostica mood ---------- */
-                MoodDiagnosticsCard(mentalText = mentalImageText, llmBoosts = llmBoosts)
-                // === CAMPO "STATO D'ANIMO" con spinner + messaggio "nessun sinonimo" (logica robusta) ===
+// === DIAGNOSTICA MOOD (una sola volta, sopra il campo Stato d’animo) ===
+                MoodDiagnosticsCard(
+                    mentalText = mentalImageText,
+                    llmBoosts = llmBoosts
+                )
+
+// === CAMPO "STATO D'ANIMO" con spinner + messaggio "nessun sinonimo" ===
                 run {
                     val langIsEn = lang.startsWith("en", ignoreCase = true)
 
@@ -1098,14 +1112,13 @@ fun TarotScreenContent(
                     var lastQuery by remember { mutableStateOf("") }
                     var job by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
-                    // Helper: verifica *prima* di analizzare se il testo contiene almeno una parola “riconoscibile”
+                    // Helper: verifica se il testo contiene almeno una parola “riconoscibile”
                     suspend fun hasKnownWordSafe(q: String): Boolean {
                         val useOpenAI = when (provider) {
                             AiProvider.OPENAI -> openKey.isNotBlank()
                             AiProvider.GEMINI -> gemKey.isNotBlank()
                             else -> false
                         }
-                        // Usa la pipeline MoodEngine: locale → cache → Datamuse → (facoltativo) OpenAI/Gemini
                         return MoodEngine.hasAnyKnownWord(
                             text = q,
                             ctx = ctx,
@@ -1116,7 +1129,28 @@ fun TarotScreenContent(
                         )
                     }
 
-                    // Campo input
+                    // ⚠️ Messaggio “nessun sinonimo” SOPRA il campo (così non resta sotto la tastiera)
+                    if (showNoSynWarning && mentalImageText.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(top = 8.dp, bottom = 4.dp, start = 6.dp, end = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFFFFD54F),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.mood_no_syn),
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    // Campo input STATO D'ANIMO
                     ThemedFieldLight(
                         value = mentalImageText,
                         onChange = { newText ->
@@ -1135,14 +1169,16 @@ fun TarotScreenContent(
                                 delay(300)                // debounce
                                 lastQuery = q
 
-                                // 1) Controllo “conosco qualcosa?” (locale/Datamuse/AI se attiva)
-                                val known = hasKnownWordSafe(q)
-                                showNoSynWarning = !known
+                                // 1) Aggiorna sempre i bias
+                                onAnalyze()
 
-                                // 2) Se qualcosa è noto → procedi all’analisi (aggiornamento cursori)
-                                if (known) {
-                                    onAnalyze()          // vm.refreshLlmBoosts(ctx, lang)
+                                // 2) Controlla se esiste almeno una parola “riconoscibile”
+                                val known = try {
+                                    hasKnownWordSafe(q)
+                                } catch (_: Exception) {
+                                    true   // se Datamuse/AI falliscono, niente warning
                                 }
+                                showNoSynWarning = !known
 
                                 // 3) chiudi spinner
                                 delay(100)
@@ -1150,8 +1186,8 @@ fun TarotScreenContent(
                             }
                         },
                         label = stringResource(R.string.field_mood),
-                        placeholder = if (langIsEn)
-                            "e.g., anxious, hopeful, joyful…" else "es. ansioso, speranzoso, gioioso…"
+                        placeholder = stringResource(R.string.placeholder_mood),
+                        modifier = Modifier.fillMaxWidth()
                     )
 
                     // Rotellina bianca durante lookup
@@ -1163,35 +1199,11 @@ fun TarotScreenContent(
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
-                                color = Color.White          // <- bianco per visibilità
+                                color = Color.White
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                if (langIsEn) "Looking up synonyms…" else "Cerco sinonimi…",
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-
-                    // Avviso solo se davvero non c'è nulla né localmente né su Datamuse né (se attivo) su AI
-                    if (showNoSynWarning && mentalImageText.isNotBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 6.dp, start = 6.dp, end = 6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Warning,
-                                contentDescription = null,
-                                tint = Color(0xFFFFD54F),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = if (langIsEn)
-                                    "No synonym found (try a simpler word, e.g. “sad”, “joy”, “angry”…)."
-                                else
-                                    "Nessun sinonimo trovato (prova una parola più semplice, es. “triste”, “gioia”, “rabbia”…).",
+                                text = if (langIsEn) "Looking up synonyms…" else "Cerco sinonimi…",
                                 color = Color.White,
                                 style = MaterialTheme.typography.bodySmall
                             )
@@ -1205,12 +1217,10 @@ fun TarotScreenContent(
                     value = visionText,
                     onChange = onVisionChange,
                     label = stringResource(R.string.field_vision),
-                    placeholder = if (lang.startsWith(
-                            "en",
-                            true
-                        )
-                    ) "e.g. a golden gate in a garden…" else "es. una porta dorata in un giardino…"
+                    placeholder = stringResource(R.string.placeholder_vision),
+                    modifier = Modifier.fillMaxWidth()
                 )
+
                 LaunchedEffect(visionText, lang) {
                     MoodEngine.updateSuggestedMajorsFromText(
                         visionText,
@@ -1218,8 +1228,10 @@ fun TarotScreenContent(
                     )
                 }
 
+                /* ---------- Diagnostica mood (barrette) ---------- */
 
-                // Bottone "Analizza" – attivo solo se AI configurata e testo non vuoto
+
+// Bottone "Analizza" – attivo solo se AI configurata e testo non vuoto
                 val aiEnabled = when (provider) {
                     AiProvider.OPENAI -> openKey.isNotBlank()
                     AiProvider.GEMINI -> gemKey.isNotBlank()
@@ -1246,8 +1258,8 @@ fun TarotScreenContent(
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .fillMaxWidth(0.8f)
-                        .heightIn(min = 52.dp) // 👈 più spazio verticale
-                        .padding(vertical = 6.dp), // 👈 padding aggiunto
+                        .heightIn(min = 52.dp)
+                        .padding(vertical = 6.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary.copy(
                             alpha = if (analyzing) 0.6f else 0.9f
@@ -1269,7 +1281,7 @@ fun TarotScreenContent(
                             )
                             Text(
                                 stringResource(R.string.btn_analyze_progress),
-                                fontSize = 15.sp, // 👈 testo più leggibile
+                                fontSize = 15.sp,
                                 maxLines = 1
                             )
                         }
@@ -1281,20 +1293,18 @@ fun TarotScreenContent(
                                 "Enable AI in settings"
                             else
                                 "Abilita AI nelle impostazioni",
-                            fontSize = 15.sp, // 👈 testo meno compresso
+                            fontSize = 15.sp,
                             lineHeight = 18.sp,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis // 👈 evita tagli
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
+
                 /* ---------- Estrai / Reset ---------- */
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(
-                        16.dp,
-                        Alignment.CenterHorizontally
-                    )
+                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
                 ) {
                     val drawLabel = ctx.getString(R.string.btn_draw)
                     val resetLabel = ctx.getString(R.string.btn_reset)
@@ -1338,8 +1348,7 @@ fun TarotScreenContent(
                                 val resCandidate = remember("${deck}:${drawnCard.card.index}") {
                                     cardDrawableResForDeck(ctx, drawnCard.card, deck)
                                 }
-                                val safeRes =
-                                    if (resCandidate != 0) resCandidate else R.drawable.carta_nera
+                                val safeRes = if (resCandidate != 0) resCandidate else R.drawable.carta_nera
                                 Box(
                                     Modifier
                                         .fillMaxWidth()
