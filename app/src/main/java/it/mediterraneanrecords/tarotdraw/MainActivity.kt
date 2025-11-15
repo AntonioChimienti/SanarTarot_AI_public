@@ -3,28 +3,22 @@ package it.mediterraneanrecords.tarotdraw
 /* =========================================================
    IMPORTS (puliti)
    ========================================================= */
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import it.mediterraneanrecords.tarotdraw.AmbientAudio
-//import com.google.android.gms.ads.MobileAds
+
 
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.annotation.RawRes
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +41,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Warning
@@ -72,7 +67,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
@@ -80,7 +74,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -92,6 +85,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -1027,6 +1021,19 @@ fun TarotScreenContent(
             /* ---------- QUICK HELP ---------- */
             var quickHelpOpen by rememberSaveable { mutableStateOf(false) }
 
+// Preferenze per non mostrare la card troppe volte
+            val prefs = remember {
+                ctx.getSharedPreferences("sanar_prefs", Context.MODE_PRIVATE)
+            }
+            var audioIntroCount by remember {
+                mutableStateOf(prefs.getInt("audio_intro_count", 0))
+            }
+
+// Mostra la card solo se l'abbiamo mostrata meno di 3 volte
+            var showAudioIntro by rememberSaveable(audioIntroCount) {
+                mutableStateOf(audioIntroCount < 3)
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1035,6 +1042,19 @@ fun TarotScreenContent(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // --- AUDIO INTRO CARD (mostrata solo se 'showAudioIntro' è true) ---
+                if (showAudioIntro) {
+                    AudioIntroCard(
+                        langTag = currentLangTag(),
+                        onDismiss = {
+                            showAudioIntro = false
+                            audioIntroCount += 1
+                            prefs.edit().putInt("audio_intro_count", audioIntroCount).apply()
+                        }
+                    )
+                }
+
+                /* ---------- QUICK HELP ---------- */
                 Text(
                     text = stringResource(R.string.title_extract),
                     style = MaterialTheme.typography.titleLarge.copy(
@@ -1052,11 +1072,10 @@ fun TarotScreenContent(
                     onChooseCards = { },
                     onFocusMood = { },
                     onOpenMainMenu = { menuExpanded = true },
-                    onOpenTarotGuide = { showTarotGuide = true }   // <-- AGGIUNTO
+                    onOpenTarotGuide = { showTarotGuide = true }
                 )
 
-
-                /* ---------- Selettori ---------- */
+                // ---------- Selettori ----------
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         stringResource(R.string.field_num_cards),
@@ -1070,46 +1089,19 @@ fun TarotScreenContent(
                     )
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = includeMajors, onCheckedChange = onToggleMajors)
-                        Text(
-                            stringResource(R.string.toggle_majors),
-                            color = Color.White,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = includeMinors, onCheckedChange = onToggleMinors)
-                        Text(
-                            stringResource(R.string.toggle_minors),
-                            color = Color.White,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = allowReversed, onCheckedChange = onToggleReversed)
-                        Text(
-                            stringResource(R.string.toggle_reversed),
-                            color = Color.White,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-                }
-// === DIAGNOSTICA MOOD (una sola volta, sopra il campo Stato d’animo) ===
+                // === DIAGNOSTICA MOOD (una sola volta, sopra il campo Stato d’animo) ===
                 MoodDiagnosticsCard(
                     mentalText = mentalImageText,
                     llmBoosts = llmBoosts
                 )
 
-// === CAMPO "STATO D'ANIMO" con spinner + messaggio "nessun sinonimo" ===
+                // === CAMPO "STATO D'ANIMO" con spinner + messaggio "nessun sinonimo" ===
                 run {
                     val langIsEn = lang.startsWith("en", ignoreCase = true)
 
                     // Stati locali UI
                     var isCanonicalizing by remember { mutableStateOf(false) }
                     var showNoSynWarning by remember { mutableStateOf(false) }
-                    var lastQuery by remember { mutableStateOf("") }
                     var job by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
                     // Helper: verifica se il testo contiene almeno una parola “riconoscibile”
@@ -1129,7 +1121,7 @@ fun TarotScreenContent(
                         )
                     }
 
-                    // ⚠️ Messaggio “nessun sinonimo” SOPRA il campo (così non resta sotto la tastiera)
+                    // ⚠️ Messaggio “nessun sinonimo” – SOPRA il campo, così non resta sotto la tastiera
                     if (showNoSynWarning && mentalImageText.isNotBlank()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -1144,12 +1136,16 @@ fun TarotScreenContent(
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = stringResource(R.string.mood_no_syn),
+                                text = if (langIsEn)
+                                    "No synonym found (try a simpler word, e.g. \"sad\", \"joy\", \"angry\"…)."
+                                else
+                                    "Nessun sinonimo trovato (prova una parola più semplice, es. \"triste\", \"gioia\", \"rabbia\"…).",
                                 color = Color.White,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }
+
                     // Campo input STATO D'ANIMO
                     ThemedFieldLight(
                         value = mentalImageText,
@@ -1167,16 +1163,15 @@ fun TarotScreenContent(
                             job = scope.launch {
                                 isCanonicalizing = true
                                 delay(300)                // debounce
-                                lastQuery = q
 
-                                // 1) Aggiorna sempre i bias
+                                // 1) Esegui SEMPRE l’analisi → aggiorna le barrette comunque
                                 onAnalyze()
 
                                 // 2) Controlla se esiste almeno una parola “riconoscibile”
                                 val known = try {
                                     hasKnownWordSafe(q)
                                 } catch (_: Exception) {
-                                    true   // se Datamuse/AI falliscono, niente warning
+                                    true   // se Datamuse / rete / AI falliscono, niente warning
                                 }
                                 showNoSynWarning = !known
 
@@ -1203,16 +1198,15 @@ fun TarotScreenContent(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                text = if (langIsEn) "Looking up synonyms…" else "Cerco sinonimi…",
+                                if (langIsEn) "Looking up synonyms…" else "Cerco sinonimi…",
                                 color = Color.White,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }
                 }
-// === FINE CAMPO "STATO D'ANIMO" ===
 
-                /* ---------- Campo “Visione” ---------- */
+                // ---------- Campo “Visione” ----------
                 ThemedFieldLight(
                     value = visionText,
                     onChange = onVisionChange,
@@ -1227,6 +1221,144 @@ fun TarotScreenContent(
                         lang
                     )
                 }
+
+                // (poi continua tutto il resto come già avevi: bottone Analizza, Estrai/Reset, carte estratte, ecc.)
+
+                // === DIAGNOSTICA MOOD (una sola volta, sopra il campo Stato d’animo) ===
+                MoodDiagnosticsCard(
+                    mentalText = mentalImageText,
+                    llmBoosts = llmBoosts
+                )
+
+                // === CAMPO "STATO D'ANIMO" con spinner + messaggio "nessun sinonimo" ===
+                run {
+                    val langIsEn = lang.startsWith("en", ignoreCase = true)
+
+                    // Stati locali UI
+                    var isCanonicalizing by remember { mutableStateOf(false) }
+                    var showNoSynWarning by remember { mutableStateOf(false) }
+                    var job by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+                    // Helper: verifica se il testo contiene almeno una parola “riconoscibile”
+                    suspend fun hasKnownWordSafe(q: String): Boolean {
+                        val useOpenAI = when (provider) {
+                            AiProvider.OPENAI -> openKey.isNotBlank()
+                            AiProvider.GEMINI -> gemKey.isNotBlank()
+                            else -> false
+                        }
+                        return MoodEngine.hasAnyKnownWord(
+                            text = q,
+                            ctx = ctx,
+                            langTag = lang,
+                            useDatamuse = true,
+                            useOpenAI = useOpenAI,
+                            openAiKey = if (provider == AiProvider.OPENAI) openKey else ""
+                        )
+                    }
+
+                    // ⚠️ Messaggio “nessun sinonimo” – SOPRA il campo, così non resta sotto la tastiera
+                    if (showNoSynWarning && mentalImageText.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(top = 8.dp, bottom = 4.dp, start = 6.dp, end = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFFFFD54F),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = if (langIsEn)
+                                    "No synonym found (try a simpler word, e.g. \"sad\", \"joy\", \"angry\"…)."
+                                else
+                                    "Nessun sinonimo trovato (prova una parola più semplice, es. \"triste\", \"gioia\", \"rabbia\"…).",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    // Campo input STATO D'ANIMO
+                    ThemedFieldLight(
+                        value = mentalImageText,
+                        onChange = { newText ->
+                            onMentalImageChange(newText)
+                            showNoSynWarning = false
+                            job?.cancel()
+
+                            val q = newText.trim()
+                            if (q.length < 3) {
+                                isCanonicalizing = false
+                                return@ThemedFieldLight
+                            }
+
+                            job = scope.launch {
+                                isCanonicalizing = true
+                                delay(300)                // debounce
+
+                                // 1) Esegui SEMPRE l’analisi → aggiorna le barrette comunque
+                                onAnalyze()
+
+                                // 2) Controlla se esiste almeno una parola “riconoscibile”
+                                val known = try {
+                                    hasKnownWordSafe(q)
+                                } catch (_: Exception) {
+                                    true   // se Datamuse / rete / AI falliscono, niente warning
+                                }
+                                showNoSynWarning = !known
+
+                                // 3) chiudi spinner
+                                delay(100)
+                                isCanonicalizing = false
+                            }
+                        },
+                        label = stringResource(R.string.field_mood),
+                        placeholder = stringResource(R.string.placeholder_mood),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Rotellina bianca durante lookup
+                    if (isCanonicalizing) {
+                        Row(
+                            Modifier.padding(top = 6.dp, start = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (langIsEn) "Looking up synonyms…" else "Cerco sinonimi…",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+
+                // ---------- Campo “Visione” ----------
+                ThemedFieldLight(
+                    value = visionText,
+                    onChange = onVisionChange,
+                    label = stringResource(R.string.field_vision),
+                    placeholder = stringResource(R.string.placeholder_vision),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                LaunchedEffect(visionText, lang) {
+                    MoodEngine.updateSuggestedMajorsFromText(
+                        visionText,
+                        lang
+                    )
+                }
+
+                // (da qui in giù lascia tutto come lo avevi: bottone Analizza, Estrai/Reset, carte estratte, ecc.)
+
 
                 /* ---------- Diagnostica mood (barrette) ---------- */
 
@@ -1923,4 +2055,111 @@ fun assetForCurrent(baseName: String): String {
     val isEn = currentLangTag().startsWith("en", ignoreCase = true)
     // Adatta come preferisci: suffisso o sottocartella
     return "decks/${baseName}_" + if (isEn) "en" else "it"
+}
+@Composable
+fun AudioIntroCard(
+    langTag: String,
+    onDismiss: () -> Unit
+) {
+    val isEn = langTag.startsWith("en", ignoreCase = true)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xAA000000),
+            contentColor = Color.White
+        ),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 240.dp)
+        ) {
+
+            // 🔹 LOGO TRASPARENTE, PICCOLO, CENTRATO IN BASSO
+            Image(
+                painter = painterResource(id = R.drawable.ic_mediterranean_logo_round),
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)   // ⭐ centrato orizzontalmente
+                    .padding(bottom = 7.dp)         // ⭐ distanza dal bordo
+                    .size(60.dp)                    // ⭐ regolabile (90–120 ideale)
+                    .alpha(0.42f),                   // ⭐ trasparenza elegante
+                contentScale = ContentScale.Fit
+            )
+
+            // ------- Contenuto testuale -------
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Headset,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (isEn) "Immersive ambient audio" else "Audio ambientale immersivo",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Text(
+                    text = if (isEn) {
+                        "We are Mediterranean Records, a music label, and we have taken special care of the sound experience of this app, making it evocative, immersive and cinematic."
+                    } else {
+                        "Noi siamo Mediterranean Records, un’etichetta discografica, e per questo abbiamo dedicato una cura speciale all’esperienza sonora di questa app, rendendola evocativa, immersiva e dal carattere cinematografico."
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Text(
+                    text = if (isEn) {
+                        "For an even deeper experience, we suggest using headphones and listening to the ambient soundtrack for 3–5 minutes before your first spread."
+                    } else {
+                        "Per un’esperienza ancora più profonda ti consigliamo di usare le cuffie e restare in ascolto del commento musicale per 3–5 minuti prima della prima stesa."
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Text(
+                    text = if (isEn) {
+                        "For example, the church ambience (Celestia deck) is designed to give an almost three-dimensional feeling, as if you were really sitting on a bench in that space."
+                    } else {
+                        "Ad esempio l’ambiente sonoro della chiesa (mazzo Celestia) è stato pensato per dare una sensazione quasi tridimensionale, come se fossi davvero seduto su una panca in quel luogo."
+                    },
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = "Mediterranean Records – Publishing",
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = if (isEn) "Ok, got it" else "Ok, ho capito",
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
