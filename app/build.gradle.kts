@@ -106,6 +106,9 @@ android {
 }
 
 dependencies {
+    //banner pubblicitario
+    //implementation("com.google.android.gms:play-services-ads:23.4.0")
+
     // Animazioni Compose (per animateFloatAsState/tween)
     implementation("androidx.compose.animation:animation")
 
