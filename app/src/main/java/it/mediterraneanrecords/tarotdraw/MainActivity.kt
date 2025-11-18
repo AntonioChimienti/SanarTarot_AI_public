@@ -3,8 +3,39 @@ package it.mediterraneanrecords.tarotdraw
 /* =========================================================
    IMPORTS (puliti)
    ========================================================= */
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.sin
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import kotlin.math.PI
+import kotlin.math.sin
 
+import androidx.compose.ui.geometry.Size
 
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawBehind
+import it.mediterraneanrecords.tarotdraw.ExperienceGate
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -179,7 +210,20 @@ enum class CardDisplayMode { COMPACT, FULL_IMAGE }
 // inizio CLASSE TarotViewModel
 // ======================== TAROT VIEWMODEL ========================
 class TarotViewModel(private val state: SavedStateHandle) : ViewModel() {
+// --------------------------------------------------------------
+// AUDIO CARD — stato visibilità + ripristino
+// --------------------------------------------------------------
 
+    var showAudioCard by mutableStateOf(true)
+        private set
+
+    fun hideAudioCard() {
+        showAudioCard = false
+    }
+
+    fun resetAudioCard() {
+        showAudioCard = true
+    }
     // ---- LOG ----
     private val TAG = "SanarTarotAI"
 
@@ -651,31 +695,64 @@ fun TarotScreenContent(
     onSetShowCreditsDialog: (Boolean) -> Unit,
     onAnalyze: () -> Unit,
     onApplyVision: (AiProvider, String, String) -> Unit,
+    viewModel: TarotViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
-
     val ctx = LocalContext.current
 
-    // ---------- AUDIO AMBIENTE (globale) ----------
+    // Limiti versione free (10 giorni / 30 stese)
+    val isLimited = !ExperienceGate.isPro && ExperienceGate.checkLimits(ctx)
+    // --- Stato per la card di introduzione audio ---
+    val prefs = ctx.getSharedPreferences("experience_prefs", Context.MODE_PRIVATE)
+
+    var audioIntroCount by remember {
+        mutableStateOf(prefs.getInt("audio_intro_count", 0))
+    }
+
+// Mostra la card automaticamente solo se è apparsa meno di 3 volte
+    val showAudioIntro = viewModel.showAudioCard
+    val scope = rememberCoroutineScope()
+    val (provider, openKey, gemKey, lang) = rememberAiPrefs()
+
+    /* ---------- Stato UI locale ---------- */
+    var menuExpanded by remember { mutableStateOf(false) }
+    var devSnack by remember { mutableStateOf<String?>(null) }
+    var showDeckDialog by remember { mutableStateOf(false) }
+    var showUpgradeDialog by rememberSaveable { mutableStateOf(false) }
+    var showAiSettings by remember { mutableStateOf(false) }
+    var showHelpAi by remember { mutableStateOf(false) }
+    var showTarotGuide by remember { mutableStateOf(false) }
+    var showLang by remember { mutableStateOf(false) }
+
+
+    // Stato per lo spinner “online lookup” del campo Stato d’animo
+    var isCanonicalizing by remember { mutableStateOf(false) }
+
+    /* ---------- Gate esperienza: versione free / PRO ---------- */
+    LaunchedEffect(Unit) {
+        ExperienceGate.checkAndPrompt(
+            context = ctx,
+            onLimitReached = { showUpgradeDialog = true }
+        )
+    }
+
+    /* ---------- AUDIO AMBIENTE (globale) ---------- */
     // Stato locale: musica ON/OFF (parte ON di default)
     var isMusicOn by rememberSaveable { mutableStateOf(true) }
 
     // Tieni allineato il flag globale di AmbientAudio
     LaunchedEffect(isMusicOn) {
-        AmbientAudio.setEnabled(isMusicOn, ctx)
+        AmbientAudio.setEnabled(enabled = isMusicOn, ctx)
     }
 
     // Ogni volta che cambia mazzo o stato audio, aggiorna la musica
     LaunchedEffect(isMusicOn, deck) {
-        if (!isMusicOn) {
-            // Audio spento: non suonare nulla
-            return@LaunchedEffect
-        }
+        if (!isMusicOn) return@LaunchedEffect
 
         val resId = when (deck.lowercase()) {
-            "lux"        -> R.raw.amb_lux
-            "cel"        -> R.raw.amb_cel
-            "arc", "nova" -> R.raw.amb_arc
-            else         -> R.raw.amb_base   // default
+            "lux"          -> R.raw.amb_lux
+            "cel"          -> R.raw.amb_cel
+            "arc", "nova"  -> R.raw.amb_arc
+            else           -> R.raw.amb_base   // default
         }
 
         AmbientAudio.play(
@@ -684,69 +761,72 @@ fun TarotScreenContent(
             loop  = true
         )
     }
-// -----------------------------------
-    val scope = rememberCoroutineScope()
-    // opacità del layer di scurimento: 0.0 = trasparente, 0.6 ≈ ben scuro
-    val (provider, openKey, gemKey, lang) = rememberAiPrefs()
 
-    /* ---------- Stato UI locale ---------- */
-    var menuExpanded by remember { mutableStateOf(false) }
-    var devSnack by remember { mutableStateOf<String?>(null) }
-    var showDeckDialog by remember { mutableStateOf(false) }
-    var showAiSettings by remember { mutableStateOf(false) }
-    var showHelpAi by remember { mutableStateOf(false) }
-    var showTarotGuide by remember { mutableStateOf(false) }
-    var showLang by remember { mutableStateOf(false) }
-
-    // Stato per lo spinner “online lookup” del campo Stato d’animo
-    var isCanonicalizing by remember { mutableStateOf(false) }
-    var noSynonymFound by remember { mutableStateOf(false) }
-    // Abilitazione AI (per decidere se mostrare il bottone “Analizza con ChatGPT”)
-    when (provider) {
-        AiProvider.OPENAI -> openKey.isNotBlank()
-        AiProvider.GEMINI -> gemKey.isNotBlank()
-        else -> false
-    }
-
-    /* ---------- Avvio lookup sinonimi automatico con debounce ---------- */
-    LaunchedEffect(mentalImageText, lang) {
-        val t = mentalImageText.trim()
-        if (t.length >= 3) {
-            isCanonicalizing = true
-            noSynonymFound = false
-            delay(350)
-            try {
-                onAnalyze() // chiama la ricerca
-                // se non cambia nulla nel mood (llmBoosts invariato), segnala che non ha trovato sinonimo
-                delay(300)
-                if (llmBoosts == null || llmBoosts == LlmBoosts(1f, 1f, 1f, 1f, 1f, emptySet(), 0f))
-                    noSynonymFound = true
-            } finally {
-                delay(150)
-                isCanonicalizing = false
-            }
-        } else {
-            isCanonicalizing = false
-            noSynonymFound = false
-        }
-    }
     /* ---------- Credits ---------- */
     if (showCreditsDialog) {
         AlertDialog(
             onDismissRequest = { onSetShowCreditsDialog(false) },
             title = { Text(stringResource(R.string.menu_credits)) },
-            text = { Text("Programmato da Antonio Chimienti ©2025.\nSuggerimenti: info@antoniochimienti.it") },
-            confirmButton = { TextButton(onClick = { onSetShowCreditsDialog(false) }) { Text("OK") } }
+            text = {
+                Text(
+                    "Programmato da Antonio Chimienti ©2025.\n" +
+                            "Suggerimenti: info@antoniochimienti.it"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { onSetShowCreditsDialog(false) }) {
+                    Text("OK")
+                }
+            }
         )
     }
 
     /* ---------- Scenografia ---------- */
     val gradientColor = Color(0xFF403830)
-    val textShadow =
-        Shadow(color = Color.Black.copy(alpha = 0.7f), offset = Offset(4f, 4f), blurRadius = 8f)
+    val textShadow = Shadow(
+        color = Color.Black.copy(alpha = 0.7f),
+        offset = Offset(4f, 4f),
+        blurRadius = 8f
+    )
     val textStyleWithShadow = TextStyle(shadow = textShadow)
 
+    /*========ANIMAZIONE LUCE========================*/
 
+// Layer scuro (se poi vuoi, lo possiamo animare)
+    val overlayAlpha = remember { Animatable(0.12f) }
+
+// --- NUOVA LOGICA FLASH: subito + random 5–10s ---
+    val flashProgress = remember { Animatable(1f) }
+    var isFlashing by remember { mutableStateOf(false) }
+    var firstFlashDone by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (!firstFlashDone) {
+                // primo flash immediato
+                firstFlashDone = true
+            } else {
+                // attesa casuale tra 5 e 10 secondi
+                val delayMs = (25000..100000).random()
+                delay(delayMs.toLong())
+            }
+
+            isFlashing = true
+            flashProgress.snapTo(0f)
+
+            flashProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 450,      // durata del flash
+                    easing = LinearEasing
+                )
+            )
+
+            isFlashing = false
+            flashProgress.snapTo(1f)
+        }
+    }
+    /*=====================FINE ANIMAZIONE LUCE======================*/
 
     Box {
         // 1) Immagine di sfondo
@@ -772,15 +852,104 @@ fun TarotScreenContent(
                 )
         )
 
-        // 3) Layer di scurimento regolabile
+        // 3) Layer scuro + passata di luce tipo riflesso
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                //.background(Color.Black.copy(alpha = bgDim))
-                .background(Color.Black.copy(alpha = 0.10f))
-        )
+                .drawBehind {
+                    // Sfondo scurito
+                    drawRect(Color.Black.copy(alpha = overlayAlpha.value))
 
-        /* ---------- Scaffold ---------- */
+                    // Pivot in basso a destra
+                    val pivot = Offset(size.width, size.height)
+
+                    // Progresso dell’animazione (0 → 1)
+                    val p = flashProgress.value
+
+                    // Angolo: da -45° (taglia da sotto) a +45° (taglia da sopra)
+                    val angleDeg = -45f + 180f * p
+
+                    // Lama lunga: attraversa TUTTO il device
+                    val beamLength = size.maxDimension * 1.2f
+
+                    // Spessore della lama (abbastanza evidente)
+                    val beamThickness = size.minDimension / 0.5f
+
+                    // Intensità tipo "onda" (forte al centro, zero agli estremi)
+                    val intensity = sin(p * PI).toFloat().coerceAtLeast(0f)
+
+                    // Se è davvero bassissima, non disegno (così non sporca lo sfondo)
+                    if (intensity < 0.05f) return@drawBehind
+
+                    // Alpha modulati dall’intensità
+                    val coreAlpha = 0.12f + 0.18f * intensity       // alone morbido
+                    val highlightAlpha = 1.20f + 2.42f * intensity  // colpo centrale
+
+                    // --- COLORI CELESTE MADONNA (più morbidi e meno flashati) ---
+                    val blueCore = Color(0xFF1F1FFF)   // azzurro Madonna, profondo e tenue
+                   val blueHi   = Color(0xFFCDE8F5)   // highlight morbido, non bianco freddo
+
+                    // Lama di luce (gradient lineare) AZZURRA
+                    val beamBrush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            blueCore.copy(alpha = 0f),
+                            blueCore.copy(alpha = coreAlpha),
+                            blueHi.copy(alpha = highlightAlpha),
+                            blueCore.copy(alpha = coreAlpha),
+                            blueCore.copy(alpha = 0f),
+                            Color.Transparent
+                        ),
+                        start = pivot,
+                        end = pivot - Offset(beamLength, 0f)
+                    )
+
+                    // Flare morbido sul raggio (azzurrino anche lui)
+                    val flareRadius = beamThickness * 3.2f
+                    val flareCenter = Offset(
+                        x = size.width - beamLength * 0.45f,
+                        y = size.height
+                    )
+                    val flareBrush = Brush.radialGradient(
+                        colors = listOf(
+                            blueHi.copy(alpha = 0.7f * intensity),
+                            Color.Transparent
+                        ),
+                        center = flareCenter,
+                        radius = flareRadius
+                    )
+
+                    withTransform({
+                        rotate(
+                            degrees = angleDeg,
+                            pivot = pivot
+                        )
+                    }) {
+                        // Lama che attraversa lo schermo
+                        drawRect(
+                            brush = beamBrush,
+                            topLeft = Offset(
+                                x = size.width - beamLength,
+                                y = size.height - beamThickness / 2f
+                            ),
+                            size = Size(
+                                width = beamLength,
+                                height = beamThickness
+                            ),
+                            blendMode = BlendMode.ColorDodge   // ⭐ "Linear Dodge (Add)"
+                        // blendMode = BlendMode.Plus   // ⭐ "Linear Dodge (Add)"
+                        )
+
+                        // Flare centrale
+                        drawCircle(
+                            brush = flareBrush,
+                            radius = flareRadius,
+                            center = flareCenter
+                        )
+                    }
+                }        )
+
+    /* ---------- Scaffold ---------- */
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -812,7 +981,8 @@ fun TarotScreenContent(
                             }
                             DropdownMenu(
                                 expanded = menuExpanded,
-                                onDismissRequest = { menuExpanded = false }) {
+                                onDismissRequest = { menuExpanded = false }
+                            ) {
 
                                 DropdownMenuItem(
                                     text = {
@@ -856,6 +1026,16 @@ fun TarotScreenContent(
                                 )
 
                                 DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.menu_restore_audio_card)) },
+                                    onClick = {
+                                        viewModel.resetAudioCard()
+                                        audioIntroCount = 0
+                                        prefs.edit().putInt("audio_intro_count", 0).apply()
+                                        menuExpanded = false
+                                    }
+                                )
+
+                                DropdownMenuItem(
                                     text = {
                                         Text(if (isMusicOn) "Audio ON" else "Audio OFF")
                                     },
@@ -876,9 +1056,8 @@ fun TarotScreenContent(
                                         devSnack = if (missing.isEmpty())
                                             "✅ Tutte le immagini sono presenti"
                                         else
-                                            "⚠️ Mancano ${missing.size} carte: " + missing.joinToString(
-                                                ", "
-                                            ) { it.name }
+                                            "⚠️ Mancano ${missing.size} carte: " +
+                                                    missing.joinToString(",") { it.name }
                                     }
                                 )
                             }
@@ -899,8 +1078,13 @@ fun TarotScreenContent(
                     val fieldVision = ctx.getString(R.string.field_vision)
                     val shareLabel = ctx.getString(R.string.btn_share)
 
-                    BottomAppBar(containerColor = Color(0x80403830), contentColor = Color.White) {
+                    BottomAppBar(
+                        containerColor = Color(0x80403830),
+                        contentColor = Color.White
+                    ) {
                         Spacer(Modifier.weight(1f))
+
+                        // Bottone CONDIVIDI normale (sempre disponibile)
                         Button(
                             onClick = {
                                 val shareText = buildString {
@@ -910,11 +1094,14 @@ fun TarotScreenContent(
                                         if (d.reversed) append(" (Rovesciata)")
                                         append("\n")
                                     }
-                                    if (mentalImageText.isNotBlank()) append("\n$fieldMood: $mentalImageText")
-                                    if (visionText.isNotBlank()) append("\n$fieldVision: $visionText")
+                                    if (mentalImageText.isNotBlank())
+                                        append("\n$fieldMood: $mentalImageText")
+                                    if (visionText.isNotBlank())
+                                        append("\n$fieldVision: $visionText")
                                 }
                                 val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText)
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, shareText)
                                 }
                                 ctx.startActivity(Intent.createChooser(intent, shareLabel))
                             },
@@ -926,92 +1113,110 @@ fun TarotScreenContent(
                             modifier = Modifier
                                 .padding(vertical = 8.dp)
                                 .height(48.dp)
-                        ) { Text(shareLabel) }
-
+                        ) {
+                            Text(shareLabel)
+                        }
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            TextButton(
-                                onClick = {
-                                    val shareText = buildString {
-                                        append(appName).append("\n\n")
-                                        drawn.forEachIndexed { i, d ->
-                                            append("${i + 1}. ${d.card.name}")
-                                            if (d.reversed) append(" (Rovesciata)")
-                                            append("\n")
-                                        }
-                                        if (mentalImageText.isNotBlank()) append("\n$fieldMood: $mentalImageText")
-                                        if (visionText.isNotBlank()) append("\n$fieldVision: $visionText")
-                                    }
-                                    val clip = android.content.ClipData.newPlainText(
-                                        "Tarot Reading",
-                                        shareText
-                                    )
-                                    (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-                                        .setPrimaryClip(clip)
 
-                                    val candidates =
-                                        listOf("com.openai.chatgpt", "com.google.android.apps.bard")
-                                    var opened = false
-                                    for (pkg in candidates) {
-                                        val li = ctx.packageManager.getLaunchIntentForPackage(pkg)
-                                        if (li != null) {
-                                            li.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                                            runCatching { ctx.startActivity(li); opened = true }
-                                            if (opened) break
+                            // 🔒 Bottone "Copia & apri ChatGPT/Gemini" SOLO se NON limitato
+                            if (!isLimited) {
+                                TextButton(
+                                    onClick = {
+                                        val shareText = buildString {
+                                            append(appName).append("\n\n")
+                                            drawn.forEachIndexed { i, d ->
+                                                append("${i + 1}. ${d.card.name}")
+                                                if (d.reversed) append(" (Rovesciata)")
+                                                append("\n")
+                                            }
+                                            if (mentalImageText.isNotBlank())
+                                                append("\n$fieldMood: $mentalImageText")
+                                            if (visionText.isNotBlank())
+                                                append("\n$fieldVision: $visionText")
                                         }
-                                    }
-                                    if (!opened) {
-                                        val web = Intent(
-                                            Intent.ACTION_VIEW,
-                                            Uri.parse("https://chat.openai.com/")
+
+                                        val clip = android.content.ClipData.newPlainText(
+                                            "Tarot Reading",
+                                            shareText
                                         )
-                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        runCatching { ctx.startActivity(web) }
-                                    }
-                                },
-                                modifier = Modifier.padding(start = 8.dp)
-                            ) {
-                                val shareGpt =
-                                    if (provider == AiProvider.GEMINI)
-                                        if (lang.startsWith(
-                                                "en",
-                                                true
-                                            )
-                                        ) "Copy & open Gemini" else "Copia & apri Gemini"
-                                    else
-                                        if (lang.startsWith(
-                                                "en",
-                                                true
-                                            )
-                                        ) "Copy & open ChatGPT" else "Copia & apri ChatGPT"
-                                Text(shareGpt, color = Color.White)
+                                        (ctx.getSystemService(Context.CLIPBOARD_SERVICE)
+                                                as android.content.ClipboardManager)
+                                            .setPrimaryClip(clip)
+
+                                        val candidates = listOf(
+                                            "com.openai.chatgpt",
+                                            "com.google.android.apps.bard"
+                                        )
+                                        var opened = false
+                                        for (pkg in candidates) {
+                                            val li = ctx.packageManager
+                                                .getLaunchIntentForPackage(pkg)
+                                            if (li != null) {
+                                                li.addFlags(
+                                                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                            Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                                )
+                                                runCatching {
+                                                    ctx.startActivity(li)
+                                                    opened = true
+                                                }
+                                                if (opened) break
+                                            }
+                                        }
+                                        if (!opened) {
+                                            val web = Intent(
+                                                Intent.ACTION_VIEW,
+                                                Uri.parse("https://chat.openai.com/")
+                                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            runCatching { ctx.startActivity(web) }
+                                        }
+                                    },
+                                    modifier = Modifier.padding(start = 8.dp)
+                                ) {
+                                    val shareGpt =
+                                        if (provider == AiProvider.GEMINI) {
+                                            if (lang.startsWith("en", true))
+                                                "Copy & open Gemini"
+                                            else
+                                                "Copia & apri Gemini"
+                                        } else {
+                                            if (lang.startsWith("en", true))
+                                                "Copy & open ChatGPT"
+                                            else
+                                                "Copia & apri ChatGPT"
+                                        }
+                                    Text(shareGpt, color = Color.White)
+                                }
                             }
 
                             val providerLabel = when (provider) {
-                                AiProvider.OPENAI -> if (lang.startsWith(
-                                        "en",
-                                        true
-                                    )
-                                ) "Active provider: ChatGPT" else "Provider attivo: ChatGPT"
+                                AiProvider.OPENAI ->
+                                    if (lang.startsWith("en", true))
+                                        "Active provider: ChatGPT"
+                                    else
+                                        "Provider attivo: ChatGPT"
 
-                                AiProvider.GEMINI -> if (lang.startsWith(
-                                        "en",
-                                        true
-                                    )
-                                ) "Active provider: Gemini" else "Provider attivo: Gemini"
+                                AiProvider.GEMINI ->
+                                    if (lang.startsWith("en", true))
+                                        "Active provider: Gemini"
+                                    else
+                                        "Provider attivo: Gemini"
 
-                                else -> if (lang.startsWith(
-                                        "en",
-                                        true
-                                    )
-                                ) "Active provider: None" else "Provider attivo: Nessuno"
+                                else ->
+                                    if (lang.startsWith("en", true))
+                                        "Active provider: None"
+                                    else
+                                        "Provider attivo: Nessuno"
                             }
+
                             Text(
                                 providerLabel,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White.copy(alpha = 0.85f)
                             )
                         }
+
                         Spacer(Modifier.weight(1f))
                     }
                 }
@@ -1021,17 +1226,28 @@ fun TarotScreenContent(
             /* ---------- QUICK HELP ---------- */
             var quickHelpOpen by rememberSaveable { mutableStateOf(false) }
 
-// Preferenze per non mostrare la card troppe volte
+            // --- Preferenze per non mostrare la card audio troppe volte ---
             val prefs = remember {
-                ctx.getSharedPreferences("sanar_prefs", Context.MODE_PRIVATE)
+                ctx.getSharedPreferences("experience_prefs", Context.MODE_PRIVATE)
             }
+
             var audioIntroCount by remember {
                 mutableStateOf(prefs.getInt("audio_intro_count", 0))
             }
 
-// Mostra la card solo se l'abbiamo mostrata meno di 3 volte
-            var showAudioIntro by rememberSaveable(audioIntroCount) {
-                mutableStateOf(audioIntroCount < 3)
+
+// aggiunta paramentri per lo sfondo
+// 🔹 Quando chiudi la card audio, scurisco gradualmente lo sfondo
+            LaunchedEffect(showAudioIntro) {
+                if (!showAudioIntro) {
+                    overlayAlpha.animateTo(
+                        targetValue = 0.65f,        // quanto scuro vuoi
+                        animationSpec = tween(3000) // 3 secondi
+                    )
+                } else {
+                    // se per qualche motivo la ri-mostriamo, torno chiaro
+                    overlayAlpha.snapTo(0.12f)
+                }
             }
 
             Column(
@@ -1047,14 +1263,19 @@ fun TarotScreenContent(
                     AudioIntroCard(
                         langTag = currentLangTag(),
                         onDismiss = {
-                            showAudioIntro = false
+                            // 🔹 nascondo la card agendo sul ViewModel
+                            viewModel.hideAudioCard()
+
+                            // 🔹 aggiorno il contatore come facevi prima
                             audioIntroCount += 1
-                            prefs.edit().putInt("audio_intro_count", audioIntroCount).apply()
+                            prefs.edit()
+                                .putInt("audio_intro_count", audioIntroCount)
+                                .apply()
                         }
                     )
                 }
 
-                /* ---------- QUICK HELP ---------- */
+                /* ---------- TITOLO + QUICK HELP ---------- */
                 Text(
                     text = stringResource(R.string.title_extract),
                     style = MaterialTheme.typography.titleLarge.copy(
@@ -1075,7 +1296,7 @@ fun TarotScreenContent(
                     onOpenTarotGuide = { showTarotGuide = true }
                 )
 
-                // ---------- Selettori ----------
+                // Numero di carte
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         stringResource(R.string.field_num_cards),
@@ -1089,351 +1310,174 @@ fun TarotScreenContent(
                     )
                 }
 
-                // === DIAGNOSTICA MOOD (una sola volta, sopra il campo Stato d’animo) ===
-                MoodDiagnosticsCard(
-                    mentalText = mentalImageText,
-                    llmBoosts = llmBoosts
-                )
-
-                // === CAMPO "STATO D'ANIMO" con spinner + messaggio "nessun sinonimo" ===
-                run {
-                    val langIsEn = lang.startsWith("en", ignoreCase = true)
-
-                    // Stati locali UI
-                    var isCanonicalizing by remember { mutableStateOf(false) }
-                    var showNoSynWarning by remember { mutableStateOf(false) }
-                    var job by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-
-                    // Helper: verifica se il testo contiene almeno una parola “riconoscibile”
-                    suspend fun hasKnownWordSafe(q: String): Boolean {
-                        val useOpenAI = when (provider) {
-                            AiProvider.OPENAI -> openKey.isNotBlank()
-                            AiProvider.GEMINI -> gemKey.isNotBlank()
-                            else -> false
-                        }
-                        return MoodEngine.hasAnyKnownWord(
-                            text = q,
-                            ctx = ctx,
-                            langTag = lang,
-                            useDatamuse = true,
-                            useOpenAI = useOpenAI,
-                            openAiKey = if (provider == AiProvider.OPENAI) openKey else ""
-                        )
-                    }
-
-                    // ⚠️ Messaggio “nessun sinonimo” – SOPRA il campo, così non resta sotto la tastiera
-                    if (showNoSynWarning && mentalImageText.isNotBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .padding(top = 8.dp, bottom = 4.dp, start = 6.dp, end = 6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Warning,
-                                contentDescription = null,
-                                tint = Color(0xFFFFD54F),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = if (langIsEn)
-                                    "No synonym found (try a simpler word, e.g. \"sad\", \"joy\", \"angry\"…)."
-                                else
-                                    "Nessun sinonimo trovato (prova una parola più semplice, es. \"triste\", \"gioia\", \"rabbia\"…).",
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-
-                    // Campo input STATO D'ANIMO
-                    ThemedFieldLight(
-                        value = mentalImageText,
-                        onChange = { newText ->
-                            onMentalImageChange(newText)
-                            showNoSynWarning = false
-                            job?.cancel()
-
-                            val q = newText.trim()
-                            if (q.length < 3) {
-                                isCanonicalizing = false
-                                return@ThemedFieldLight
-                            }
-
-                            job = scope.launch {
-                                isCanonicalizing = true
-                                delay(300)                // debounce
-
-                                // 1) Esegui SEMPRE l’analisi → aggiorna le barrette comunque
-                                onAnalyze()
-
-                                // 2) Controlla se esiste almeno una parola “riconoscibile”
-                                val known = try {
-                                    hasKnownWordSafe(q)
-                                } catch (_: Exception) {
-                                    true   // se Datamuse / rete / AI falliscono, niente warning
-                                }
-                                showNoSynWarning = !known
-
-                                // 3) chiudi spinner
-                                delay(100)
-                                isCanonicalizing = false
-                            }
-                        },
-                        label = stringResource(R.string.field_mood),
-                        placeholder = stringResource(R.string.placeholder_mood),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Rotellina bianca durante lookup
-                    if (isCanonicalizing) {
-                        Row(
-                            Modifier.padding(top = 6.dp, start = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = Color.White
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                if (langIsEn) "Looking up synonyms…" else "Cerco sinonimi…",
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
-
-                // ---------- Campo “Visione” ----------
-                ThemedFieldLight(
-                    value = visionText,
-                    onChange = onVisionChange,
-                    label = stringResource(R.string.field_vision),
-                    placeholder = stringResource(R.string.placeholder_vision),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                LaunchedEffect(visionText, lang) {
-                    MoodEngine.updateSuggestedMajorsFromText(
-                        visionText,
-                        lang
-                    )
-                }
-
-                // (poi continua tutto il resto come già avevi: bottone Analizza, Estrai/Reset, carte estratte, ecc.)
-
-                // === DIAGNOSTICA MOOD (una sola volta, sopra il campo Stato d’animo) ===
-                MoodDiagnosticsCard(
-                    mentalText = mentalImageText,
-                    llmBoosts = llmBoosts
-                )
-
-                // === CAMPO "STATO D'ANIMO" con spinner + messaggio "nessun sinonimo" ===
-                run {
-                    val langIsEn = lang.startsWith("en", ignoreCase = true)
-
-                    // Stati locali UI
-                    var isCanonicalizing by remember { mutableStateOf(false) }
-                    var showNoSynWarning by remember { mutableStateOf(false) }
-                    var job by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-
-                    // Helper: verifica se il testo contiene almeno una parola “riconoscibile”
-                    suspend fun hasKnownWordSafe(q: String): Boolean {
-                        val useOpenAI = when (provider) {
-                            AiProvider.OPENAI -> openKey.isNotBlank()
-                            AiProvider.GEMINI -> gemKey.isNotBlank()
-                            else -> false
-                        }
-                        return MoodEngine.hasAnyKnownWord(
-                            text = q,
-                            ctx = ctx,
-                            langTag = lang,
-                            useDatamuse = true,
-                            useOpenAI = useOpenAI,
-                            openAiKey = if (provider == AiProvider.OPENAI) openKey else ""
-                        )
-                    }
-
-                    // ⚠️ Messaggio “nessun sinonimo” – SOPRA il campo, così non resta sotto la tastiera
-                    if (showNoSynWarning && mentalImageText.isNotBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .padding(top = 8.dp, bottom = 4.dp, start = 6.dp, end = 6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Warning,
-                                contentDescription = null,
-                                tint = Color(0xFFFFD54F),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = if (langIsEn)
-                                    "No synonym found (try a simpler word, e.g. \"sad\", \"joy\", \"angry\"…)."
-                                else
-                                    "Nessun sinonimo trovato (prova una parola più semplice, es. \"triste\", \"gioia\", \"rabbia\"…).",
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-
-                    // Campo input STATO D'ANIMO
-                    ThemedFieldLight(
-                        value = mentalImageText,
-                        onChange = { newText ->
-                            onMentalImageChange(newText)
-                            showNoSynWarning = false
-                            job?.cancel()
-
-                            val q = newText.trim()
-                            if (q.length < 3) {
-                                isCanonicalizing = false
-                                return@ThemedFieldLight
-                            }
-
-                            job = scope.launch {
-                                isCanonicalizing = true
-                                delay(300)                // debounce
-
-                                // 1) Esegui SEMPRE l’analisi → aggiorna le barrette comunque
-                                onAnalyze()
-
-                                // 2) Controlla se esiste almeno una parola “riconoscibile”
-                                val known = try {
-                                    hasKnownWordSafe(q)
-                                } catch (_: Exception) {
-                                    true   // se Datamuse / rete / AI falliscono, niente warning
-                                }
-                                showNoSynWarning = !known
-
-                                // 3) chiudi spinner
-                                delay(100)
-                                isCanonicalizing = false
-                            }
-                        },
-                        label = stringResource(R.string.field_mood),
-                        placeholder = stringResource(R.string.placeholder_mood),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Rotellina bianca durante lookup
-                    if (isCanonicalizing) {
-                        Row(
-                            Modifier.padding(top = 6.dp, start = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = Color.White
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                if (langIsEn) "Looking up synonyms…" else "Cerco sinonimi…",
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
-
-                // ---------- Campo “Visione” ----------
-                ThemedFieldLight(
-                    value = visionText,
-                    onChange = onVisionChange,
-                    label = stringResource(R.string.field_vision),
-                    placeholder = stringResource(R.string.placeholder_vision),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                LaunchedEffect(visionText, lang) {
-                    MoodEngine.updateSuggestedMajorsFromText(
-                        visionText,
-                        lang
-                    )
-                }
-
-                // (da qui in giù lascia tutto come lo avevi: bottone Analizza, Estrai/Reset, carte estratte, ecc.)
-
-
-                /* ---------- Diagnostica mood (barrette) ---------- */
-
-
-// Bottone "Analizza" – attivo solo se AI configurata e testo non vuoto
-                val aiEnabled = when (provider) {
-                    AiProvider.OPENAI -> openKey.isNotBlank()
-                    AiProvider.GEMINI -> gemKey.isNotBlank()
-                    else -> false
-                }
-
-                var analyzing by remember { mutableStateOf(false) }
-                var lastClickTime by remember { mutableStateOf(0L) }
-
-                Button(
-                    onClick = {
-                        val now = System.currentTimeMillis()
-                        if (now - lastClickTime < 500) return@Button
-                        lastClickTime = now
-
-                        analyzing = true
-                        scope.launch {
-                            onAnalyze()
-                            delay(400)
-                            analyzing = false
-                        }
-                    },
-                    enabled = aiEnabled && mentalImageText.isNotBlank() && !analyzing,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .fillMaxWidth(0.8f)
-                        .heightIn(min = 52.dp)
-                        .padding(vertical = 6.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary.copy(
-                            alpha = if (analyzing) 0.6f else 0.9f
-                        ),
-                        contentColor = Color.White,
-                        disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                        disabledContentColor = Color.White.copy(alpha = 0.8f)
-                    ),
-                    shape = RoundedCornerShape(50)
+// --- Switch base: Arcani Maggiori / Minori / Rovesciate ---
+                Column(
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (analyzing) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .padding(end = 10.dp),
-                                strokeWidth = 2.dp,
-                                color = Color.White
-                            )
-                            Text(
-                                stringResource(R.string.btn_analyze_progress),
-                                fontSize = 15.sp,
-                                maxLines = 1
-                            )
-                        }
-                    } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = includeMajors, onCheckedChange = onToggleMajors)
                         Text(
-                            text = if (aiEnabled)
-                                stringResource(R.string.btn_analyze)
-                            else if (lang.startsWith("en", true))
-                                "Enable AI in settings"
-                            else
-                                "Abilita AI nelle impostazioni",
-                            fontSize = 15.sp,
-                            lineHeight = 18.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            stringResource(R.string.toggle_majors),
+                            color = Color.White,
+                            style = TextStyle(shadow = textShadow),
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = includeMinors, onCheckedChange = onToggleMinors)
+                        Text(
+                            stringResource(R.string.toggle_minors),
+                            color = Color.White,
+                            style = TextStyle(shadow = textShadow),
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = allowReversed, onCheckedChange = onToggleReversed)
+                        Text(
+                            stringResource(R.string.toggle_reversed),
+                            color = Color.White,
+                            style = TextStyle(shadow = textShadow),
+                            modifier = Modifier.padding(start = 8.dp)
                         )
                     }
                 }
 
-                /* ---------- Estrai / Reset ---------- */
+
+                // === DIAGNOSTICA MOOD (una sola volta, sopra il campo Stato d’animo) ===
+                MoodDiagnosticsCard(
+                    mentalText = mentalImageText,
+                    llmBoosts = llmBoosts
+                )
+
+                // === CAMPO "STATO D'ANIMO" con spinner + messaggio "nessun sinonimo" ===
+                run {
+                    val langIsEn = lang.startsWith("en", ignoreCase = true)
+
+                    // Stati locali UI
+                    var isCanonicalizing by remember { mutableStateOf(false) }
+                    var showNoSynWarning by remember { mutableStateOf(false) }
+                    var job by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+                    // Helper: verifica se il testo contiene almeno una parola “riconoscibile”
+                    suspend fun hasKnownWordSafe(q: String): Boolean {
+                        val useOpenAI = when (provider) {
+                            AiProvider.OPENAI -> openKey.isNotBlank()
+                            AiProvider.GEMINI -> gemKey.isNotBlank()
+                            else -> false
+                        }
+                        return MoodEngine.hasAnyKnownWord(
+                            text = q,
+                            ctx = ctx,
+                            langTag = lang,
+                            useDatamuse = true,
+                            useOpenAI = useOpenAI,
+                            openAiKey = if (provider == AiProvider.OPENAI) openKey else ""
+                        )
+                    }
+
+                    // ⚠️ Messaggio “nessun sinonimo” – SOPRA il campo
+                    if (showNoSynWarning && mentalImageText.isNotBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .padding(top = 8.dp, bottom = 4.dp, start = 6.dp, end = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFFFFD54F),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = if (langIsEn)
+                                    "No synonym found (try a simpler word, e.g. \"sad\", \"joy\", \"angry\"…)."
+                                else
+                                    "Nessun sinonimo trovato (prova una parola più semplice, es. \"triste\", \"gioia\", \"rabbia\"…).",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    // Campo input STATO D'ANIMO
+                    ThemedFieldLight(
+                        value = mentalImageText,
+                        onChange = { newText ->
+                            onMentalImageChange(newText)
+                            showNoSynWarning = false
+                            job?.cancel()
+
+                            val q = newText.trim()
+                            if (q.length < 3) {
+                                isCanonicalizing = false
+                                return@ThemedFieldLight
+                            }
+
+                            job = scope.launch {
+                                isCanonicalizing = true
+                                delay(300)
+
+                                // 1) Esegui SEMPRE l’analisi
+                                onAnalyze()
+
+                                // 2) Controlla se esiste almeno una parola “riconoscibile”
+                                val known = try {
+                                    hasKnownWordSafe(q)
+                                } catch (_: Exception) {
+                                    true
+                                }
+                                showNoSynWarning = !known
+
+                                // 3) chiudi spinner
+                                delay(100)
+                                isCanonicalizing = false
+                            }
+                        },
+                        label = stringResource(R.string.field_mood),
+                        placeholder = stringResource(R.string.placeholder_mood),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Rotellina bianca durante lookup
+                    if (isCanonicalizing) {
+                        Row(
+                            Modifier.padding(top = 6.dp, start = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (langIsEn) "Looking up synonyms…" else "Cerco sinonimi…",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+
+                // ---------- Campo “Visione” ----------
+                ThemedFieldLight(
+                    value = visionText,
+                    onChange = onVisionChange,
+                    label = stringResource(R.string.field_vision),
+                    placeholder = stringResource(R.string.placeholder_vision),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                LaunchedEffect(visionText, lang) {
+                    MoodEngine.updateSuggestedMajorsFromText(
+                        visionText,
+                        lang
+                    )
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
@@ -1443,21 +1487,56 @@ fun TarotScreenContent(
 
                     Button(
                         onClick = {
+                            // 1) Limiti FREE (come prima)
+                            if (!ExperienceGate.isPro) {
+                                ExperienceGate.registerDraw(ctx)
+                                if (ExperienceGate.checkLimits(ctx)) {
+                                    showUpgradeDialog = true
+                                }
+                            }
+
+                            // 2) Effetto fade in / fade out sullo sfondo (2s + 2s)
+                            scope.launch {
+                                val baseAlpha = overlayAlpha.value
+                                val flashAlpha = (baseAlpha + 0.25f).coerceAtMost(0.75f)
+
+                                // fade in (più scuro / più intenso)
+                                overlayAlpha.animateTo(
+                                    targetValue = flashAlpha,
+                                    animationSpec = tween(durationMillis = 2000)
+                                )
+
+                                // fade out, torno al valore di base
+                                overlayAlpha.animateTo(
+                                    targetValue = baseAlpha,
+                                    animationSpec = tween(durationMillis = 2000)
+                                )
+                            }
+
+                            // 3) Logica originale: applyVision + draw
                             if (visionText.isNotBlank() && provider != AiProvider.NONE) {
                                 scope.launch {
                                     onApplyVision(provider, openKey, gemKey)
                                     onDraw()
                                 }
-                            } else onDraw()
+                            } else {
+                                onDraw()
+                            }
                         },
                         modifier = Modifier.height(48.dp)
-                    ) { Text(drawLabel) }
+                    ) {
+                        Text(drawLabel)
+                    }
 
                     Button(
                         onClick = onReset,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        ),
                         modifier = Modifier.height(48.dp)
-                    ) { Text(resetLabel) }
+                    ) {
+                        Text(resetLabel)
+                    }
                 }
 
                 /* ---------- Carte estratte ---------- */
@@ -1480,7 +1559,8 @@ fun TarotScreenContent(
                                 val resCandidate = remember("${deck}:${drawnCard.card.index}") {
                                     cardDrawableResForDeck(ctx, drawnCard.card, deck)
                                 }
-                                val safeRes = if (resCandidate != 0) resCandidate else R.drawable.carta_nera
+                                val safeRes =
+                                    if (resCandidate != 0) resCandidate else R.drawable.carta_nera
                                 Box(
                                     Modifier
                                         .fillMaxWidth()
@@ -1516,7 +1596,7 @@ fun TarotScreenContent(
 
                 Spacer(Modifier.height(72.dp))
             }
-        }//================================FINE SCAFFOLD================================================
+        } // ======== FINE SCAFFOLD ========
 
         /* ---------- Snackbar ---------- */
         devSnack?.let { msg ->

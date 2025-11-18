@@ -26,7 +26,7 @@
     <string name="share_chatgpt">Copia &amp; apri ChatGPT</string>
 
     <!-- Menu -->
-    <string name="menu_toggle_view">Mostra dettagli</string>
+    <string name="menu_toggle_view">Mostra solo dettagli</string>
     <string name="menu_toggle_view_images">Mostra solo immagini</string>
     <string name="menu_ai_settings">Impostazioni AI</string>
     <string name="menu_help_ai">Spiegazione modalità AI</string>
@@ -34,6 +34,7 @@
     <string name="menu_language">Lingua</string>
     <string name="menu_credits">Crediti</string>
     <string name="menu_check_images">Verifica immagini carte</string>
+    <string name="menu_restore_audio_card">Ripristina card audio</string>
 
     <!-- Dialog / azioni comuni -->
     <string name="ok">OK</string>
