@@ -2103,7 +2103,7 @@ fun AssetDialog(title: String, assetPath: String, onClose: () -> Unit) {
                     .fillMaxWidth()
                     .heightIn(min = 240.dp, max = 560.dp)
                     .verticalScroll(scroll)
-            ) { MarkdownLite(text = mdText) }
+            ) { MarkdownFull(text = mdText) }
         }
     )
 }

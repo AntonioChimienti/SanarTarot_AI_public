@@ -9,7 +9,7 @@
 
     <!-- Fields -->
     <string name="field_num_cards">Number of cards</string>
-    <string name="field_mood">Mood</string>
+    <string name="field_mood">What is your mood?</string>
     <string name="field_vision">Vision</string>
 
     <!-- Toggles -->

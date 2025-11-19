@@ -108,6 +108,13 @@ android {
 dependencies {
     //banner pubblicitario
     //implementation("com.google.android.gms:play-services-ads:23.4.0")
+    dependencies {
+        // ... altre dipendenze
+
+        // Aggiungi queste due righe per Markwon
+        val markwonVersion = "4.6.2" // Controlla l'ultima versione disponibile
+        implementation("io.noties.markwon:core:$markwonVersion")
+    }
 
     // Animazioni Compose (per animateFloatAsState/tween)
     implementation("androidx.compose.animation:animation")

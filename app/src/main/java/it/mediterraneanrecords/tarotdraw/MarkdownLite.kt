@@ -2,8 +2,12 @@ package it.mediterraneanrecords.tarotdraw
 
 import android.content.Intent
 import android.net.Uri
+import android.text.method.LinkMovementMethod
+import android.widget.TextView
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -12,16 +16,51 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.viewinterop.AndroidView
+import io.noties.markwon.Markwon
 
 /* =========================================================
-   MarkdownLite — renderer semplice per .md negli assets
-   Supporta **bold**, *italic* e [link](url) (cliccabili)
+   MarkdownFull — renderer completo con Markwon
+   Supporta titoli (#), bold (**), italic (*),
+   liste, link cliccabili e layout ben formattato.
+   ========================================================= */
+
+@Composable
+fun MarkdownFull(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    // Markwon viene ricordato e creato una sola volta
+    val markwon = remember { Markwon.create(context) }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            TextView(ctx).apply {
+                // Permette ai link di essere cliccati
+                movementMethod = LinkMovementMethod.getInstance()
+                textSize = 17f        // regola come preferisci
+                setLineSpacing(0f, 1.2f)
+            }
+        },
+        update = { tv ->
+            // Markwon renderizza il Markdown completo
+            markwon.setMarkdown(tv, text)
+        }
+    )
+}
+
+/* =========================================================
+   MarkdownFull — versione leggera con solo bold/corsivo/link
+   (puoi continuare a usarla se ti serve in qualche punto)
    ========================================================= */
 
 @Composable
 fun MarkdownLite(text: String) {
     val ctx = LocalContext.current
-    val annotated = parseInline(text)  // ← resta una funzione NON @Composable
+    val annotated = parseInline(text)  // ← funzione NON @Composable
 
     // Render con link cliccabili
     ClickableText(
@@ -89,7 +128,7 @@ private fun parseInline(md: String): AnnotatedString {
                         val start = length
                         append(label)
 
-                        // sottolineo visivamente il link (niente MaterialTheme qui)
+                        // sottolineo visivamente il link
                         addStyle(
                             style = SpanStyle(textDecoration = TextDecoration.Underline),
                             start = start,

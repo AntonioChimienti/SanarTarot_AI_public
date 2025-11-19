@@ -9,8 +9,8 @@
 
     <!-- Campi -->
     <string name="field_num_cards">Numero di carte</string>
-    <string name="field_mood">Stato d’animo</string>
-    <string name="field_vision">Visione</string>
+    <string name="field_mood">Quale è il tuo Stato d’animo?</string>
+    <string name="field_vision">Hai avuto una Visione?</string>
 
     <!-- Toggle -->
     <string name="toggle_majors">Arcani Maggiori</string>
