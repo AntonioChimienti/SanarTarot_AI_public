@@ -3,39 +3,7 @@ package it.mediterraneanrecords.tarotdraw
 /* =========================================================
    IMPORTS (puliti)
    ========================================================= */
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
-import kotlin.math.PI
-import kotlin.math.sin
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.LinearEasing
-import kotlin.math.PI
-import kotlin.math.sin
 
-import androidx.compose.ui.geometry.Size
-
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.draw.drawBehind
-import it.mediterraneanrecords.tarotdraw.ExperienceGate
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -46,10 +14,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -98,6 +66,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
@@ -118,10 +87,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -133,7 +106,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -144,6 +116,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlin.math.PI
+import kotlin.math.sin
 
 /* =========================================================
    LOG
@@ -887,7 +861,7 @@ fun TarotScreenContent(
 
                     // --- COLORI CELESTE MADONNA (più morbidi e meno flashati) ---
                     val blueCore = Color(0xFF1F1FFF)   // azzurro Madonna, profondo e tenue
-                   val blueHi   = Color(0xFFCDE8F5)   // highlight morbido, non bianco freddo
+                    val blueHi = Color(0xFFCDE8F5)   // highlight morbido, non bianco freddo
 
                     // Lama di luce (gradient lineare) AZZURRA
                     val beamBrush = Brush.linearGradient(
@@ -937,7 +911,7 @@ fun TarotScreenContent(
                                 height = beamThickness
                             ),
                             blendMode = BlendMode.ColorDodge   // ⭐ "Linear Dodge (Add)"
-                        // blendMode = BlendMode.Plus   // ⭐ "Linear Dodge (Add)"
+                            // blendMode = BlendMode.Plus   // ⭐ "Linear Dodge (Add)"
                         )
 
                         // Flare centrale
