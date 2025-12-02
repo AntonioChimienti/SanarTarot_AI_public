@@ -6,7 +6,29 @@
     <string name="title_extract">Draw Tarot Cards</string>
     <string name="section_drawn_images">Drawn Cards (images):</string>
     <string name="section_drawn_list">Drawn Cards:</string>
+    <!-- POPUP fine versione prova -->
+    <string name="bonus_ending_title">Free draws almost finished</string>
+    <string name="bonus_ending_message">
+    You are about to finish the free draws included in the Free version.\n\n
+    So far you have been able to:\n
+    • use all available tarot decks\n
+    • enjoy immersive sound environments\n
+    • share your readings directly with ChatGPT\n\n
+    Upgrade to the PRO version to continue without limits.
+</string>
 
+    <string name="bonus_ended_title">Free draws exhausted</string>
+    <string name="bonus_ended_message">
+    You have used all the free draws included in the Free version.\n\n
+    Until now you have enjoyed:\n
+    • access to all full tarot decks\n
+    • the corresponding immersive audio atmospheres\n
+    • direct sharing of your readings with ChatGPT\n\n
+    Upgrade now to the PRO version to unlock unlimited access.
+</string>
+
+    <string name="btn_ok">Ok</string>
+    <string name="btn_go_pro">Upgrade to PRO</string>
     <!-- Fields -->
     <string name="field_num_cards">Number of cards</string>
     <string name="field_mood">What is your mood?</string>

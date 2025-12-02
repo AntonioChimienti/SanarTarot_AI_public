@@ -712,6 +712,8 @@ fun CompanyBanner(rotationKey: Int) {
 
 //=======END COMPANY BANNER (FALLBACK)========================================
 // ============================= TAROT SCREEN / UI =============================
+private const val FREE_BONUS_DRAWS = 50              // numero di stese agevolate
+private const val FREE_BONUS_WARNING_THRESHOLD = 3    // da quante stese prima iniziare ad avvisare
 @Composable
 fun TarotScreen(vm: TarotViewModel) {
     val ctx = LocalContext.current
@@ -723,12 +725,16 @@ fun TarotScreen(vm: TarotViewModel) {
     // Stato per l'interstitial e per il contatore delle stese
     var interstitialAd by remember { mutableStateOf<InterstitialAd?>(null) }
     var drawCount by remember { mutableIntStateOf(0) }
+    var totalDraws by remember { mutableIntStateOf(0) }
+    var remainingBonusDraws by remember { mutableIntStateOf(FREE_BONUS_DRAWS) }
+    var showBonusEndingSoon by remember { mutableStateOf(false) }
+    var showBonusEnded by remember { mutableStateOf(false) }
 
     // Funzione per caricare l'interstitial
     fun loadInterstitial() {
         val adRequest = AdRequest.Builder().build()
 
-        // 👉 TUO ID INTERSTITIAL (quello con la /)  qui lo preleva dal file Adlds per distinguere dalla versione di test da quella di REALEASE
+        // ID interstitial (gestito da AdIds per test/release)
         val interstitialUnitId = AdIds.interstitialId()
 
         InterstitialAd.load(
@@ -770,18 +776,40 @@ fun TarotScreen(vm: TarotViewModel) {
 
     // Callback che esegue la stesa + eventualmente mostra l'interstitial
     val onDrawWithAd: () -> Unit = {
-        vm.draw()
-        drawCount++
+        var canDraw = true
 
-        // ogni 3 stese → interstitial (cambia 3 con il numero che vuoi)
-        if (drawCount % 3 == 0) {
-            val ad = interstitialAd
-            if (activity != null && ad != null) {
-                ad.show(activity)
+        // --- Gestione bonus FREE ---
+        if (!BuildConfig.IS_PRO) {
+            if (remainingBonusDraws <= 0) {
+                // bonus finiti: mostra popup e NON lancia la stesa
+                showBonusEnded = true
+                canDraw = false
+            } else {
+                totalDraws++
+                remainingBonusDraws--
+
+                // avviso quando mancano pochi bonus
+                if (remainingBonusDraws == FREE_BONUS_WARNING_THRESHOLD) {
+                    showBonusEndingSoon = true
+                }
+            }
+        }
+
+        if (!canDraw) {
+            // niente stesa, esco dalla lambda senza usare return
+        } else {
+            vm.draw()
+            drawCount++
+
+            // ogni 3 stese → interstitial (cambia 3 se vuoi)
+            if (drawCount % 3 == 0) {
+                val ad = interstitialAd
+                if (activity != null && ad != null) {
+                    ad.show(activity)
+                }
             }
         }
     }
-
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -819,7 +847,7 @@ fun TarotScreen(vm: TarotViewModel) {
                 onVisionChange = vm::onVisionChange, // aggiorna anche suggested in VM
                 onInfluencePctChange = vm::onInfluencePctChange,
                 onToggleDeterministic = vm::onToggleDeterministic,
-                onDraw = onDrawWithAd,   // 👈 USIAMO LA VERSIONE CON INTERSTITIAL
+                onDraw = onDrawWithAd,   // 👈 versione con interstitial + bonus
                 onReset = vm::reset,
                 onToggleCardDisplay = vm::onToggleCardDisplay,
                 onSetShowCreditsDialog = vm::onShowCreditsDialog,
@@ -830,9 +858,47 @@ fun TarotScreen(vm: TarotViewModel) {
             )
         }
 
-        // Banner in basso: lo leghiamo alla lingua E al numero di stese
+        // Banner in basso: legato alla lingua e al numero di stese
         key(lang, drawCount) {
             BannerAdView(rotationKey = drawCount)
+        }
+
+        // --- DIALOGHI BONUS (solo FREE) -------------------------------------
+        if (showBonusEndingSoon && !BuildConfig.IS_PRO) {
+            AlertDialog(
+                onDismissRequest = { showBonusEndingSoon = false },
+                confirmButton = {
+                    TextButton(onClick = { showBonusEndingSoon = false }) {
+                        Text(text = stringResource(id = R.string.btn_ok), color = Color.White)
+                    }
+                },
+                title = { Text(text = stringResource(id = R.string.bonus_ending_title)) },
+                text = { Text(text = stringResource(id = R.string.bonus_ending_message)) },
+                containerColor = Color(0xFF222222),
+                titleContentColor = Color.White,
+                textContentColor = Color.White
+            )
+        }
+
+        if (showBonusEnded && !BuildConfig.IS_PRO) {
+            AlertDialog(
+                onDismissRequest = { /* niente tap fuori */ },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://play.google.com/store/apps/details?id=it.mediterraneanrecords.tarotdraw.pro"))
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        ctx.startActivity(intent)
+                    }) {
+                        Text(text = stringResource(id = R.string.btn_go_pro), color = Color.Yellow)
+                    }
+                },
+                title = { Text(text = stringResource(id = R.string.bonus_ended_title)) },
+                text = { Text(text = stringResource(id = R.string.bonus_ended_message)) },
+                containerColor = Color(0xFF222222),
+                titleContentColor = Color.White,
+                textContentColor = Color.White
+            )
         }
     }
 }

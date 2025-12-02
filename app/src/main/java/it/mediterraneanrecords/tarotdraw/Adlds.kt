@@ -11,7 +11,8 @@ object AdIds {
     const val INTERSTITIAL_REAL = "ca-app-pub-8159860715703754/3931070369"
 
     // 🔁 Interruttore manuale: TRUE = usa ID di test, FALSE = usa quelli reali
-    private const val USE_TEST_ADS = true
+    //private const val USE_TEST_ADS = true
+    private const val USE_TEST_ADS = false
 
     fun bannerId(): String =
         if (USE_TEST_ADS) BANNER_TEST else BANNER_REAL

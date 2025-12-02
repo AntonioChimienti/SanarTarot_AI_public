@@ -1,4 +1,5 @@
 <resources>
+
     <!-- App -->
     <string name="app_name">Sanar Tarot Draw</string>
 
@@ -6,6 +7,29 @@
     <string name="title_extract">Estrai carte dai Tarocchi</string>
     <string name="section_drawn_images">Carte Estratte (immagini):</string>
     <string name="section_drawn_list">Carte Estratte:</string>
+    <!-- POPUP fine versione free -->
+    <string name="bonus_ending_title">Stese bonus quasi terminate</string>
+    <string name="bonus_ending_message">
+    Hai quasi terminato le stese gratuite della versione Free.\n\n
+    Fino ad ora hai potuto:\n
+    • usare tutti i mazzi di carte disponibili\n
+    • ascoltare le ambientazioni sonore immersive\n
+    • condividere le estrazioni direttamente su ChatGPT\n\n
+    Passa alla versione PRO per continuare senza limiti.
+</string>
+
+    <string name="bonus_ended_title">Bonus esauriti</string>
+    <string name="bonus_ended_message">
+    Hai utilizzato tutte le stese bonus della versione Free.\n\n
+    Finora hai avuto accesso a:\n
+    • tutti i mazzi completi\n
+    • le relative ambientazioni sonore immersive\n
+    • la condivisione diretta su ChatGPT\n\n
+    Aggiorna ora alla versione PRO per continuare senza limiti.
+</string>
+
+    <string name="btn_ok">Ok</string>
+    <string name="btn_go_pro">Passa alla versione PRO</string>
 
     <!-- Campi -->
     <string name="field_num_cards">Numero di carte</string>
