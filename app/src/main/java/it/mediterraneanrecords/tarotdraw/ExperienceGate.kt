@@ -3,7 +3,7 @@ package it.mediterraneanrecords.tarotdraw
 import android.content.Context
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
-
+import it.mediterraneanrecords.tarotdraw.BuildFlavor
 object ExperienceGate {
 
     // -----------------------------------------------------

@@ -1,5 +1,7 @@
 package it.mediterraneanrecords.tarotdraw
 
+import it.mediterraneanrecords.tarotdraw.BuildConfig  // ✅ IMPORT GIUSTO
+
 /**
  * Unico wrapper per sapere se la build è PRO o FREE.
  * Legge il valore dal BuildConfig generato dai productFlavors.
