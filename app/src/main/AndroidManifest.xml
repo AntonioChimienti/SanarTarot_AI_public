@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="it.mediterraneanrecords.tarotdraw">
 
-    <!-- 👇 Questo blocco serve per permettere a getLaunchIntentForPackage() di "vedere" ChatGPT -->
+    <!-- App che possiamo "vedere" con getLaunchIntentForPackage -->
     <queries>
         <package android:name="com.openai.chatgpt" />
         <package android:name="com.openai.chatgpt.beta" />
@@ -11,7 +11,11 @@
         <package android:name="com.google.android.apps.bard" />
         <package android:name="com.google.android.apps.bard.dev" />
     </queries>
+
+    <!-- Permessi di rete -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -21,6 +25,12 @@
         android:label="Sanar Tarot Draw"
         android:supportsRtl="true"
         android:theme="@style/Theme.TarotDraw">
+
+        <!-- AdMob APP ID (con il ~ , NON l’ID del banner) -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-8159860715703754~5936069564" />
+
 
         <activity
             android:name=".MainActivity"

@@ -4,11 +4,36 @@ package it.mediterraneanrecords.tarotdraw
    IMPORTS (puliti)
    ========================================================= */
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import android.app.Activity
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.key
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.google.android.gms.ads.FullScreenContentCallback
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.AdError
+import com.google.android.gms.ads.AdListener
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.MobileAds
+import androidx.compose.ui.viewinterop.AndroidView
+import com.google.android.gms.ads.AdSize
+import android.os.Bundle
+import java.util.Locale
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -546,77 +571,272 @@ class TarotViewModel(private val state: SavedStateHandle) : ViewModel() {
 }
 // ======================== END TAROT VIEWMODEL ========================
 
-//=========================== ACTIVITY ===========================
+// =========================== ACTIVITY ===========================
 class MainActivity : ComponentActivity() {
 
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(LocaleManager.wrapContext(ctx = newBase))
+        // usa direttamente newBase, senza ctx
+        super.attachBaseContext(LocaleManager.wrapContext(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Applica la lingua salvata PRIMA di creare la UI
-        val savedLang = runBlocking { ApiConfig.langFlow(ctx = this@MainActivity).first() }
-        val tag = savedLang.ifBlank { "it" }
-        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
+        val ctx = this // context locale
 
-        //inizializza gli ADS QUI
-        //MobileAds.initialize(this)
+        // Applica la lingua salvata PRIMA di creare la UI
+        val savedLang = runBlocking { ApiConfig.langFlow(ctx).first() }
+        val tag = savedLang.ifBlank { "it" }
+
+        AppCompatDelegate.setApplicationLocales(
+            LocaleListCompat.create(Locale(tag))
+        )
+
+        // ====== INIZIALIZZA GLI ADS QUI (solo FREE) ======
+        if (BuildConfig.FLAVOR == "free") {
+            MobileAds.initialize(this) {}
+        }
+        // ================================================
+
         val vm by viewModels<TarotViewModel>()
-        setContent { AppTheme { TarotScreen(vm = vm) } }
+
+        setContent {
+            AppTheme {
+                TarotScreen(vm = vm)
+            }
+        }
     }
 }
-//======================= END ACTIVITY ===========================
+// ======================= END ACTIVITY ===========================
 
-// =============================== ROOT SCREEN / UI ===============================
+// ======================= COMPOSABLE BANNER CON FALLBACK ======================
+@Composable
+fun BannerAdView(rotationKey: Int) {
+    var showFallback by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // AdView di Google SEMPRE presente
+        AndroidView(
+            factory = { context ->
+                AdView(context).apply {
+                    setAdSize(AdSize.BANNER)
+
+                    // richiama il ID Test o reale mio ID AdMob per la pubblicità e lo va a prelevare dal file Adlds.kt
+                    adUnitId = AdIds.bannerId()
+
+                    adListener = object : AdListener() {
+                        override fun onAdFailedToLoad(error: LoadAdError) {
+                            showFallback = true
+                        }
+
+                        override fun onAdLoaded() {
+                            showFallback = false
+                        }
+                    }
+
+                    loadAd(AdRequest.Builder().build())
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+        )
+
+        // Se non c'è un annuncio valido, ci sovrapponiamo col tuo banner
+        if (showFallback) {
+            CompanyBanner(rotationKey = rotationKey)
+        }
+    }
+}// ==================== END COMPOSABLE BANNER CON FALLBACK =====================
+
+//===================== COMPANY BANNER (FALLBACK)===============================
+
+data class PromoBanner(
+    @DrawableRes val imageRes: Int,
+    val url: String,
+    val contentDescription: String
+)
+
+@Composable
+fun CompanyBanner(rotationKey: Int) {
+    val context = LocalContext.current
+
+    val banners = listOf(
+        PromoBanner(
+            imageRes = R.drawable.banner_moderno_atleta,
+            url = "https://www.amazon.it/Moderno-Atleta-2-Antonio-Chimienti/dp/B0C1J7F4FM",
+            contentDescription = "Libro Il Moderno Atleta"
+        ),
+        PromoBanner(
+            imageRes = R.drawable.banner_alto_voltaggio,
+            url = "https://www.altovoltaggio.it",
+            contentDescription = "Alto Voltaggio Battery Lab"
+        ),
+        PromoBanner(
+            imageRes = R.drawable.banner_mediterranean_records,
+            url = "https://www.mediterraneanrecords.com/index.html",
+            contentDescription = "Mediterranean Records Label"
+        )
+    )
+
+    val index = rotationKey.mod(banners.size)
+    val banner = banners[index]
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(3f)
+                .clip(RoundedCornerShape(20.dp))  // arrotonda senza lasciare bordi bianchi
+                .clickable {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(banner.url))
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                },
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Image(
+                painter = painterResource(banner.imageRes),
+                contentDescription = banner.contentDescription,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop   // <--- RISOLVE DEFINITIVAMENTE I BORDI BIANCHI
+            )
+        }
+    }
+}
+
+//=======END COMPANY BANNER (FALLBACK)========================================
+// ============================= TAROT SCREEN / UI =============================
 @Composable
 fun TarotScreen(vm: TarotViewModel) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Activity per mostrare l'interstitial
+    val activity = LocalContext.current as? Activity
 
-    LaunchedEffect(Unit) { vm.loadFromStorage(ctx) }
+    // Stato per l'interstitial e per il contatore delle stese
+    var interstitialAd by remember { mutableStateOf<InterstitialAd?>(null) }
+    var drawCount by remember { mutableIntStateOf(0) }
+
+    // Funzione per caricare l'interstitial
+    fun loadInterstitial() {
+        val adRequest = AdRequest.Builder().build()
+
+        // 👉 TUO ID INTERSTITIAL (quello con la /)  qui lo preleva dal file Adlds per distinguere dalla versione di test da quella di REALEASE
+        val interstitialUnitId = AdIds.interstitialId()
+
+        InterstitialAd.load(
+            ctx,
+            interstitialUnitId,
+            adRequest,
+            object : InterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: InterstitialAd) {
+                    interstitialAd = ad
+
+                    interstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
+                        override fun onAdDismissedFullScreenContent() {
+                            interstitialAd = null
+                            // ricarica un nuovo annuncio dopo la chiusura
+                            loadInterstitial()
+                        }
+
+                        override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                            interstitialAd = null
+                        }
+                    }
+                }
+
+                override fun onAdFailedToLoad(error: LoadAdError) {
+                    interstitialAd = null
+                }
+            }
+        )
+    }
+
+    // carica le preferenze salvate + il primo interstitial
+    LaunchedEffect(Unit) {
+        vm.loadFromStorage(ctx)
+        loadInterstitial()
+    }
 
     val (_, _, _, lang) = rememberAiPrefs()
     val deck by ApiConfig.deckFlow(ctx).collectAsState(initial = "base")
-    TarotScreenContent(
-        // stato
-        llmBoosts = vm.llmBoosts,
-        count = vm.count,
-        includeMajors = vm.includeMajors,
-        includeMinors = vm.includeMinors,
-        allowReversed = vm.allowReversed,
-        personalNumbers = vm.personalNumbers,
-        mentalImageText = vm.mentalImageText,
-        visionText = vm.visionText,
-        influencePct = vm.influencePct,
-        deterministic = vm.deterministic,
-        drawn = vm.drawn,
-        cardDisplayMode = vm.cardDisplayMode,
-        deck = deck,
-        showCreditsDialog = vm.showCreditsDialog,
-        noSynonymFound = vm.noSynonymFound,
-        moodAnalysisDone = vm.moodAnalysisDone,
-        // callback
-        onCountChange = vm::onCountChange,
-        onToggleMajors = vm::onToggleMajors,
-        onToggleMinors = vm::onToggleMinors,
-        onToggleReversed = vm::onToggleReversed,
-        onPersonalNumbersChange = vm::onPersonalNumbersChange,
-        onMentalImageChange = vm::onMentalImageChange,
-        onVisionChange = vm::onVisionChange, // aggiorna anche suggested in VM
-        onInfluencePctChange = vm::onInfluencePctChange,
-        onToggleDeterministic = vm::onToggleDeterministic,
-        onDraw = vm::draw,
-        onReset = vm::reset,
-        onToggleCardDisplay = vm::onToggleCardDisplay,
-        onSetShowCreditsDialog = vm::onShowCreditsDialog,
-        onAnalyze = { vm.refreshLlmBoosts(ctx, lang) },
-        onApplyVision = { p, ok, gk -> scope.launch { vm.applyVisionBias(p, ok, gk) } }
-    )
+
+    // Callback che esegue la stesa + eventualmente mostra l'interstitial
+    val onDrawWithAd: () -> Unit = {
+        vm.draw()
+        drawCount++
+
+        // ogni 3 stese → interstitial (cambia 3 con il numero che vuoi)
+        if (drawCount % 3 == 0) {
+            val ad = interstitialAd
+            if (activity != null && ad != null) {
+                ad.show(activity)
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Contenuto principale dell’app
+        Box(
+            modifier = Modifier
+                .weight(1f)           // prende tutto lo spazio rimanente
+                .fillMaxWidth()
+        ) {
+            TarotScreenContent(
+                // stato
+                llmBoosts = vm.llmBoosts,
+                count = vm.count,
+                includeMajors = vm.includeMajors,
+                includeMinors = vm.includeMinors,
+                allowReversed = vm.allowReversed,
+                personalNumbers = vm.personalNumbers,
+                mentalImageText = vm.mentalImageText,
+                visionText = vm.visionText,
+                influencePct = vm.influencePct,
+                deterministic = vm.deterministic,
+                drawn = vm.drawn,
+                cardDisplayMode = vm.cardDisplayMode,
+                deck = deck,
+                showCreditsDialog = vm.showCreditsDialog,
+                noSynonymFound = vm.noSynonymFound,
+                moodAnalysisDone = vm.moodAnalysisDone,
+                // callback
+                onCountChange = vm::onCountChange,
+                onToggleMajors = vm::onToggleMajors,
+                onToggleMinors = vm::onToggleMinors,
+                onToggleReversed = vm::onToggleReversed,
+                onPersonalNumbersChange = vm::onPersonalNumbersChange,
+                onMentalImageChange = vm::onMentalImageChange,
+                onVisionChange = vm::onVisionChange, // aggiorna anche suggested in VM
+                onInfluencePctChange = vm::onInfluencePctChange,
+                onToggleDeterministic = vm::onToggleDeterministic,
+                onDraw = onDrawWithAd,   // 👈 USIAMO LA VERSIONE CON INTERSTITIAL
+                onReset = vm::reset,
+                onToggleCardDisplay = vm::onToggleCardDisplay,
+                onSetShowCreditsDialog = vm::onShowCreditsDialog,
+                onAnalyze = { vm.refreshLlmBoosts(ctx, lang) },
+                onApplyVision = { p, ok, gk ->
+                    scope.launch { vm.applyVisionBias(p, ok, gk) }
+                }
+            )
+        }
+
+        // Banner in basso: lo leghiamo alla lingua E al numero di stese
+        key(lang, drawCount) {
+            BannerAdView(rotationKey = drawCount)
+        }
+    }
 }
-// ============================= END ROOT SCREEN =============================
+// =========================== END TAROT SCREEN ==========================
 
 // =============== REMEMBER AI PREFS (DataStore) ===============
 @Composable
