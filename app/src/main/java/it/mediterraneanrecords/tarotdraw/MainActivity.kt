@@ -593,7 +593,7 @@ class MainActivity : ComponentActivity() {
         )
 
         // ====== INIZIALIZZA GLI ADS QUI (solo FREE) ======
-        if (BuildConfig.FLAVOR == "free") {
+        if (!BuildFlavor.IS_PRO) {   // quindi solo nella versione FREE
             MobileAds.initialize(this) {}
         }
         // ================================================
@@ -779,7 +779,7 @@ fun TarotScreen(vm: TarotViewModel) {
         var canDraw = true
 
         // --- Gestione bonus FREE ---
-        if (!BuildConfig.IS_PRO) {
+        if (!BuildFlavor.IS_PRO) {
             if (remainingBonusDraws <= 0) {
                 // bonus finiti: mostra popup e NON lancia la stesa
                 showBonusEnded = true
@@ -864,7 +864,7 @@ fun TarotScreen(vm: TarotViewModel) {
         }
 
         // --- DIALOGHI BONUS (solo FREE) -------------------------------------
-        if (showBonusEndingSoon && !BuildConfig.IS_PRO) {
+        if (showBonusEndingSoon && !BuildFlavor.IS_PRO) {
             AlertDialog(
                 onDismissRequest = { showBonusEndingSoon = false },
                 confirmButton = {
@@ -880,7 +880,7 @@ fun TarotScreen(vm: TarotViewModel) {
             )
         }
 
-        if (showBonusEnded && !BuildConfig.IS_PRO) {
+        if (showBonusEnded && !BuildFlavor.IS_PRO) {
             AlertDialog(
                 onDismissRequest = { /* niente tap fuori */ },
                 confirmButton = {

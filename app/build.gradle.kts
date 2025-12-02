@@ -12,12 +12,20 @@ plugins {
 // Carico proprietà locali (OPENAI_API_KEY, ecc.)
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
-    if (f.exists()) load(FileInputStream(f))
+    if (f.exists()) {
+        load(FileInputStream(f))
+    }
 }
+
+// 🔹 VersionCode automatico: ogni build ha un codice univoco e crescente
+//    Non dovrai MAI più ricordarti di cambiarlo.
+val buildTimeVersionCode: Int = (System.currentTimeMillis() / 1000).toInt()
 
 android {
     namespace = "it.mediterraneanrecords.tarotdraw"
-    compileSdk = 34
+
+    // 🔹 Richiesto da Google Play: targetSdk almeno 35
+    compileSdk = 35
 
     // --- Signing (release) ---------------------------------------------------
     signingConfigs {
@@ -34,7 +42,10 @@ android {
                 keyAlias = alias
                 keyPassword = keyPass
             } else {
-                logger.lifecycle("⚠️  Nessun keystore configurato (RELEASE_STORE_FILE vuoto). La build release non sarà firmata.")
+                logger.lifecycle(
+                    "⚠️ Nessun keystore configurato (RELEASE_STORE_FILE vuoto). " +
+                            "La build release non sarà firmata."
+                )
             }
         }
     }
@@ -60,9 +71,13 @@ android {
     defaultConfig {
         applicationId = "it.mediterraneanrecords.tarotdraw"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 4
-        versionName = "1.4-FULL"
+        targetSdk = 35                 // 🔹 allineato a compileSdk
+
+        // 🔹 QUI ora è automatico
+        versionCode = buildTimeVersionCode
+
+        // 🔹 Questo lo cambi SOLO quando vuoi passare, per esempio, da 1.7 a 1.8
+        versionName = "1.7-FULL"
 
         // Espongo la chiave come BuildConfig.OPENAI_API_KEY
         val openAiKey = localProps.getProperty("OPENAI_API_KEY") ?: ""
@@ -85,13 +100,18 @@ android {
     }
 
     // --- Lint / Java / Kotlin / Compose / Packaging --------------------------
-    lint { checkReleaseBuilds = false }
+    lint {
+        checkReleaseBuilds = false
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 
     buildFeatures {
         compose = true
@@ -106,26 +126,23 @@ android {
 }
 
 dependencies {
-    //banner pubblicitario
-    //implementation("com.google.android.gms:play-services-ads:23.4.0")
-    dependencies {
-        // ... altre dipendenze
+    // banner pubblicitario
+    implementation("com.google.android.gms:play-services-ads:23.4.0")
 
-        // Aggiungi queste due righe per Markwon
-        val markwonVersion = "4.6.2" // Controlla l'ultima versione disponibile
-        implementation("io.noties.markwon:core:$markwonVersion")
-    }
+    // 🔹 BOM Compose (ottobre 2024)
+    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
+    implementation(composeBom)
+    androidTestImplementation(composeBom)
+
+    // 🔹 Markwon per il markdown “full”
+    val markwonVersion = "4.6.2"
+    implementation("io.noties.markwon:core:$markwonVersion")
 
     // Animazioni Compose (per animateFloatAsState/tween)
     implementation("androidx.compose.animation:animation")
 
-    // Coroutines (per runBlocking/flow.first)
+    // Coroutines (per runBlocking / flow.first)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-
-    // BOM Compose (ottobre 2024)
-    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
-    implementation(composeBom)
-    androidTestImplementation(composeBom)
 
     // Kotlinx Serialization (runtime)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")

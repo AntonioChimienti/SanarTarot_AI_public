@@ -1,8 +1,10 @@
 package it.mediterraneanrecords.tarotdraw
 
-// Unico interruttore FREE / PRO.
-// FALSE = versione free (limiti + pubblicità)
-// TRUE  = versione PRO (senza limiti, senza pubblicità)
+/**
+ * Unico wrapper per sapere se la build è PRO o FREE.
+ * Legge il valore dal BuildConfig generato dai productFlavors.
+ */
 object BuildFlavor {
-    const val IS_PRO: Boolean = false
+    val IS_PRO: Boolean
+        get() = BuildConfig.IS_PRO
 }
